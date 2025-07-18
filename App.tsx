@@ -1,0 +1,110 @@
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+// Screens
+import ViewBillScreen from './src/screens/ViewBillScreen';
+
+import SplashScreen from './src/screens/SplashScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import MainScreen from './src/screens/MainScreen';
+import AddScreen from './src/screens/AddScreen';
+import EditDeleteBillScreen from './src/screens/EditDeleteBillScreen';
+import ReportsScreen from './src/screens/ReportsScreen';
+import ManageSalesScreen from './src/screens/ManageSalesScreen';
+import ResultScreen from './src/screens/ResultScreen';
+import SalesReportScreen from './src/screens/SalesReportScreen';
+import WinningReportScreen from './src/screens/WinningReportScreen';
+import NumberWiseReportScreen from './src/screens/NumberWiseReportScreen';
+import NetpayScreen from './src/screens/NetPayScreen';
+import UsersScreen from './src/screens/UsersScreen';
+import CreateUserScreen from './src/screens/CreateUserScreen';
+import ListUserScreen from './src/screens/ListUserScreen';
+import RateMasterScreen from './src/screens/RateMasterScreen';
+import SelectResultScreen from './src/screens/SelectResultScreen';
+import BlockUser from './src/screens/BlockUser';
+import EditUserScreen from './src/screens/EditUserScreen';
+import BlockNumberScreen from './src/screens/BlockNumberScreen';
+import ResultEntryScreen from './src/screens/ResultEntryScreen';
+import PasteScreen from './src/screens/PasteScreen';
+import SalesReportSummery from './src/screens/SalesReportSummery';
+import SalesReportDetailed from './src/screens/SalesDetailed';
+import TicketLimitScreen from './src/screens/TicketLimitScreen';
+import NumberWiseReportResult from './src/screens/NumberWiseReportResult'
+import Schemes from './src/screens/Schemes'
+import WinningDetailed from './src/screens/WinningDetailed'
+import TimeBlockSelector from './src/screens/TimeBlockSelector'
+export type RootStackParamList = {
+  Splash: undefined;
+  Login: undefined;
+  Main: undefined;
+  Add: undefined;
+  Edit: undefined;
+  Reports: undefined;
+  ManageSales: undefined;
+  Result: undefined;
+  SalesReportScreen: undefined;
+  WinningReportScreen: undefined;
+  NumberWiseReportScreen: undefined;
+  NetPayScreen: undefined;
+  UsersScreen: undefined;
+  CreateUser: undefined;
+  ListUsers: undefined;
+  RateMaster: undefined;
+  SelectResultScreen: undefined;
+  BlockUser: undefined;
+  EditUserScreen: undefined;
+  BlockNumberScreen: undefined;
+  ResultEntry: undefined;
+  SalesReportSummery: undefined;
+  SalesReportDetailed: { date: string };
+  Paste: undefined;
+  TicketLimit: undefined;
+  ViewBillScreen:undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+export default function App() {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Splash" component={SplashScreen} />
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Main" component={MainScreen} />
+          <Stack.Screen name="Add" component={AddScreen} />
+          <Stack.Screen name="Edit" component={EditDeleteBillScreen} />
+          <Stack.Screen name="Reports" component={ReportsScreen} />
+          <Stack.Screen name="ManageSales" component={ManageSalesScreen} />
+          <Stack.Screen name="Result" component={ResultScreen} />
+          <Stack.Screen name="SalesReportScreen" component={SalesReportScreen} />
+          <Stack.Screen name="WinningReportScreen" component={WinningReportScreen} />
+          <Stack.Screen name="NumberWiseReportScreen" component={NumberWiseReportScreen} />
+          <Stack.Screen name="NetPayScreen" component={NetpayScreen} />
+          <Stack.Screen name="UsersScreen" component={UsersScreen} />
+          <Stack.Screen name="CreateUser" component={CreateUserScreen} />
+          <Stack.Screen name="ListUsers" component={ListUserScreen} />
+          <Stack.Screen name="RateMaster" component={RateMasterScreen} />
+          <Stack.Screen name="SelectResultScreen" component={SelectResultScreen} />
+          <Stack.Screen name="BlockUser" component={BlockUser} />
+          <Stack.Screen name="EditUserScreen" component={EditUserScreen} />
+          <Stack.Screen name="BlockNumberScreen" component={BlockNumberScreen} />
+          <Stack.Screen name="ResultEntry" component={ResultEntryScreen} />
+          <Stack.Screen name="SalesReportSummery" component={SalesReportSummery} />
+          <Stack.Screen name="SalesReportDetailed" component={SalesReportDetailed} />
+          <Stack.Screen name="TicketLimit" component={TicketLimitScreen} />
+          <Stack.Screen name="Paste" component={PasteScreen} />
+            <Stack.Screen name="ViewBill" component={ViewBillScreen} />
+<Stack.Screen name="NumberWiseReportResult" component={NumberWiseReportResult} />
+<Stack.Screen name="winningdetailed" component={WinningDetailed} />
+<Stack.Screen name="timeblock" component={TimeBlockSelector} />
+
+<Stack.Screen name="Schemes" component={Schemes} />
+
+        </Stack.Navigator>
+      </NavigationContainer>
+    </GestureHandlerRootView>
+  );
+}
