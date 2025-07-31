@@ -101,6 +101,7 @@ const CreateUserScreen = () => {
         onChangeText={setConfirmPassword}
         style={styles.input}
         placeholderTextColor="#888"
+        
       />
 
       {/* Picker */}

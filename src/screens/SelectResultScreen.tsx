@@ -11,7 +11,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import axios from 'axios';
 import { Picker } from '@react-native-picker/picker';
 
-const timeOptions = ['DEAR-1', 'KERALA 3PM', 'LSK 6PM', 'LSK 8PM'];
+const timeOptions = ['DEAR 1PM', 'KERALA 3PM', 'DEAR 6PM', 'DEAR 8PM'];
 
 const ResultScreen = () => {
   const [selectedTime, setSelectedTime] = useState(timeOptions[0]);
@@ -127,6 +127,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f7fb',
     alignItems: 'center',
     flexGrow: 1,
+    marginTop :30,
   },
   title: {
     fontSize: 22,

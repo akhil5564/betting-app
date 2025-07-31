@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,29 +6,52 @@ import {
   StyleSheet,
   TouchableOpacity,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-
-const mockUsers = [
-  {
-    id: '1',
-    name: 'Fr',
-    type: 'Agent',
-    scheme: 'scheme_1',
-    partner: '-',
-    stockist: '-',
-    subStockist: 'Frs',
-  },
-  // Add more mock users if needed
-];
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ListUsersScreen = () => {
   const navigation = useNavigation();
   const [search, setSearch] = useState('');
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const filteredUsers = mockUsers.filter(user =>
-    user.name.toLowerCase().includes(search.toLowerCase())
+  // Fetch users from API
+useEffect(() => {
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+
+      const storedUser = await AsyncStorage.getItem('username');
+      if (!storedUser) {
+        console.error('No logged-in user found');
+        return;
+      }
+
+      const response = await fetch('https://manu-netflix.onrender.com/users');
+      const data = await response.json();
+
+      // Filter only users created by the logged-in user
+      const filteredUsers = (data || []).filter(
+        (user: any) => user.createdBy === storedUser
+      );
+
+      setUsers(filteredUsers);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchUsers();
+}, []);
+
+
+  const filteredUsers = users.filter((user: any) =>
+    user.name?.toLowerCase().includes(search.toLowerCase())
   );
 
   const renderUserCard = ({ item }: any) => (
@@ -42,9 +65,9 @@ const ListUsersScreen = () => {
         <Text style={styles.label}>Scheme</Text>
       </View>
       <View style={styles.cardRow}>
-        <Text style={styles.value}>{item.name}</Text>
-        <Text style={styles.value}>{item.type}</Text>
-        <Text style={styles.value}>{item.scheme}</Text>
+        <Text style={styles.value}>{item.username}</Text>
+        <Text style={styles.value}>{item.usertype}</Text>
+        <Text style={styles.value}>{item.scheme || '-'}</Text>
       </View>
       <View style={styles.cardRow}>
         <Text style={styles.label}>Partner</Text>
@@ -52,9 +75,9 @@ const ListUsersScreen = () => {
         <Text style={styles.label}>Sub Stockist</Text>
       </View>
       <View style={styles.cardRow}>
-        <Text style={styles.value}>{item.partner}</Text>
-        <Text style={styles.value}>{item.stockist}</Text>
-        <Text style={styles.value}>{item.subStockist}</Text>
+        <Text style={styles.value}>{item.partner || '-'}</Text>
+        <Text style={styles.value}>{item.stockist || '-'}</Text>
+        <Text style={styles.value}>{item.subStockist || '-'}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -81,18 +104,23 @@ const ListUsersScreen = () => {
         />
       </View>
 
-      {/* User List */}
-      <FlatList
-        data={filteredUsers}
-        renderItem={renderUserCard}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: 20 }}
-      />
+      {/* Loader */}
+      {loading ? (
+        <ActivityIndicator size="large" color="#000" style={{ marginTop: 20 }} />
+      ) : (
+        <FlatList
+          data={filteredUsers}
+          renderItem={renderUserCard}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={{ paddingBottom: 20 }}
+        />
+      )}
     </View>
   );
 };
 
 export default ListUsersScreen;
+
 
 const styles = StyleSheet.create({
   container: {

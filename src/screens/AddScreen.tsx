@@ -1,6 +1,7 @@
-import React, { useEffect, useState,  } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
+
 import axios from 'axios';
 
 import {
@@ -20,13 +21,14 @@ import { TextInput as RNTextInput, } from 'react-native';
 type Entry = {
   number: string;
   count: number;
-  type: string;
+  type:keyof typeof rates;
 };
 
 type RootStackParamList = {
   Add: { pastedText?: string };
   Paste: undefined;
 };
+
 
 const checkboxOptions = [
   { key: 'range', label: 'Range' },
@@ -40,6 +42,9 @@ const timeOptions = [
   { label: 'DEAR 6 PM', color: '#113d57', shortCode: 'D-6-' },
   { label: 'DEAR 8 PM', color: '#3c6248', shortCode: 'D-8-' },
 ];
+const focusNumberInput = () => {
+  numberInputRef.current?.focus();
+};
 
 const AddScreen = () => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -51,8 +56,12 @@ const [selectedAgent, setSelectedAgent] = useState('');
 const [loggedInUser, setLoggedInUser] = useState('');
 
 const [selectedColor, setSelectedColor] = useState('#f15b87');
-const [selectedTime, setSelectedTime] = useState('LSK');
+const [selectedTime, setSelectedTime] = useState('LSK 3 PM');
 const [selectedCode, setSelectedCode] = useState('LSK3');
+const numberInputRef = useRef<TextInput>(null);
+const [assignedRates, setAssignedRates] = useState<Record<string, number>>({});
+const [rates, setRates] = useState<number[]>([]);
+const [billNumber, setBillNumber] = useState('');
 
   const [rangeStart, setRangeStart] = useState('');
   const [rangeEnd, setRangeEnd] = useState('');
@@ -60,7 +69,6 @@ const [selectedCode, setSelectedCode] = useState('LSK3');
   const [number, setNumber] = useState('');
   const countInputRef = React.useRef<RNTextInput>(null);
 const [successModalVisible, setSuccessModalVisible] = useState(false);
-const [billNumber, setBillNumber] = useState('');
 
   const [count, setCount] = useState('');
   const [box, setBox] = useState('');
@@ -74,22 +82,113 @@ const [billNumber, setBillNumber] = useState('');
     tripleOne: false,
   });
   const [entries, setEntries] = useState<Entry[]>([]);
+const labelMap = ['SUPER', 'BOX', 'AB', 'BC', 'AC', 'A', 'B', 'C'];
 
   const toggleCheckbox = (key: string) => {
     setCheckboxes({ ...checkboxes, [key as keyof typeof checkboxes]: !checkboxes[key as keyof typeof checkboxes] });
   };
 
+useEffect(() => {
+  const load = async () => {
+    const stored = await AsyncStorage.getItem('user');
+    const parsed = stored ? JSON.parse(stored) : null;
+    const username = parsed?.username || null;
+    fetchAndShowRates(username);
+  };
+
+  load();
+}, []);
+
+
+useEffect(() => {
+  const getUser = async () => {
+    const userData = await AsyncStorage.getItem('user');
+    const parsed = userData ? JSON.parse(userData) : null;
+    setLoggedInUser(parsed?.username || null);
+  };
+
+  getUser();
+}, []);
+
   useEffect(() => {
-    const loadUserAndUsers = async () => {
-      try {
-        const storedUser = await AsyncStorage.getItem('username');
-        if (storedUser) setLoggedInUser(storedUser);
+    if (loggedInUser) {
+      fetchAndShowRates(loggedInUser);
+    }
+  }, [loggedInUser]);
+
+const isWithinAllowedTime = (code: string) => {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0]; // yyyy-mm-dd
+
+  const blockTime = drawBlockTimes[code];
+  if (!blockTime) return true; // If no block time, allow
+
+  const [hour, minute] = blockTime.split(':').map(Number);
+  const blockDate = new Date(`${today}T${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`);
+
+  return now < blockDate;
+};
+
+  const fetchAndShowRates = async (user: string | null) => {
+  try {
+    const draw = 'DEAR 1 PM';
+
+    if (!user || !draw) {
+      console.log('⚠️ Missing user or draw info');
+      return;
+    }
+
+    const response = await fetch(
+      `https://manu-netflix.onrender.com/rateMaster?user=${encodeURIComponent(user)}&draw=${encodeURIComponent(draw)}`
+    );
+
+    const data = await response.json();
+    console.log('🌐 Full API Response:', data);
+
+    const labelMap = ['super', 'box', 'ab', 'bc', 'ac', 'a', 'b', 'c'];
+
+    let ratesArray = [];
+
+    if (data && Array.isArray(data.rates)) {
+      ratesArray = data.rates.map((r) => r.rate);
+    } else {
+      ratesArray = new Array(8).fill(0);
+    }
+
+    setRates(ratesArray); // <-- Save to state
+
+  } catch (error) {
+    console.error('❌ Error fetching rates:', error);
+  }
+};
+
+
+
+
+useEffect(() => {
+  if (loggedInUser) {
+    fetchAndShowRates(loggedInUser);
+  }
+}, [loggedInUser]);
+
+
+  
+useEffect(() => {
+  const loadUserAndUsers = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('username');
+      if (storedUser) {
+        setLoggedInUser(storedUser);
 
         const response = await fetch('https://manu-netflix.onrender.com/users');
         const data = await response.json();
 
         if (response.ok && Array.isArray(data)) {
-          const usernames = data
+          const filteredUsers = data.filter(
+            (u: any) => u.createdBy === storedUser
+          );
+
+          const usernames = filteredUsers
             .map((u: any) => u.username)
             .filter((username: any) => typeof username === 'string' && username.trim() !== '');
 
@@ -97,14 +196,18 @@ const [billNumber, setBillNumber] = useState('');
         } else {
           console.error('Invalid data format from API');
         }
-      } catch (err) {
-        console.error('❌ Error loading users:', err);
       }
-    };
+    } catch (err) {
+      console.error('❌ Error loading users:', err);
+    }
+  };
 
-    loadUserAndUsers();
-  }, []);
+  loadUserAndUsers();
+}, []);
 
+useEffect(() => {
+  fetchAndShowRates();
+}, []);
 
   const handleClear = () => {
     setNumber('3');
@@ -120,7 +223,10 @@ const [billNumber, setBillNumber] = useState('');
 const getPermutations = (str: string): string[] => {
   if (str.length <= 1) return [str];
   const result = new Set<string>();
-
+const getRate = (type: string): number => {
+  const found = rates.find(r => r.label.toLowerCase() === type.toLowerCase());
+  return found?.rate ?? 0;
+};
   const permute = (arr: string[], m = '') => {
     if (arr.length === 0) {
       result.add(m);
@@ -141,6 +247,7 @@ const getPermutations = (str: string): string[] => {
     setToggleCount((prev) => (prev === 3 ? 2 : prev === 2 ? 1 : 3));
   };
 const handleAddEntry = (type: string) => {
+
   const newEntries: Entry[] = [];
 
   const start = parseInt(rangeStart);
@@ -166,10 +273,14 @@ const handleAddEntry = (type: string) => {
           pushEntry(num, rangeC, `${selectedCode}BOX`);
         }
       } else {
-        if (!number || (!count && !box)) return;
-        const num = number.padStart(3, '0');
-        if (count) pushEntry(num, parseInt(count), `${selectedCode}SUPER`);
-        if (box) pushEntry(num, parseInt(box), `${selectedCode}BOX`);
+    if (!number || (!count && !box)) return;
+const num = number.padStart(3, '0');
+const finalCount = parseInt(count || '1');
+pushEntry(num, finalCount, `${selectedCode}SUPER`);
+
+const boxCount = box ? parseInt(box) : finalCount;
+pushEntry(num, boxCount, `${selectedCode}BOX`);
+
       }
     } else if (toggleCount === 2) {
       if (useRange) {
@@ -255,22 +366,139 @@ const num = number;
   setRangeEnd('');
   setRangeCount('');
 };
-const handleSave = async () => {
+const checkAndFilterEntries = async () => {
+  const dateStr = selectedDate.toISOString().split('T')[0];
 
-const payload = {
-  entries,
-  timeLabel: selectedTime,
-  timeCode: selectedCode,
-  createdBy: name || 'guest',
-  toggleCount: toggleCount, // ✅ send toggle count
-  selectedAgent: selectedAgent || loggedInUser, // ✅ optionally send selected user
+  // 1. Group entries by number
+  const numberCounts: Record<string, number> = {};
+  entries.forEach((entry) => {
+    numberCounts[entry.number] = (numberCounts[entry.number] || 0) + 1;
+  });
+
+  const allNumbers = Object.keys(numberCounts);
+
+  // 2. Get existing counts from DB
+  const res = await fetch('https://manu-netflix.onrender.com/countByNumber', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      numbers: allNumbers,
+      date: dateStr,
+      timeLabel: selectedTime,
+    }),
+  });
+
+  const existingCounts = await res.json(); // e.g., { "123": 48 }
+
+  // 3. Filter entries that won't exceed limit
+  const maxLimit = 50;
+  const filteredEntries: any[] = [];
+  const tempCounts = { ...existingCounts }; // current DB count
+
+  for (const entry of entries) {
+    const currentDBCount = tempCounts[entry.number] || 0;
+    if (currentDBCount < maxLimit) {
+      filteredEntries.push(entry);
+      tempCounts[entry.number] = currentDBCount + 1; // update temp count
+    }
+  }
+
+  return filteredEntries;
 };
 
 
+const handleSave = async () => {
+  const drawBlockTimes: Record<string, string> = {
+    'DEAR 1 PM': '12:57',
+    'LSK 3 PM': '15:02',
+    'DEAR 6 PM': '17:57',
+    'DEAR 8 PM': '19:57',
+  };
+
+  const isWithinAllowedTime = (label: string) => {
+    const block = drawBlockTimes[label];
+    if (!block) return true;
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const [h, m] = block.split(':').map(Number);
+    const blockTime = new Date(`${todayStr}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
+    return now <= blockTime;
+  };
+
+  if (!isWithinAllowedTime(selectedTime)) {
+    alert('⛔ Entry time is over for this draw!');
+    return;
+  }
+
+  // ✅ Step 1: Group total new count by number
+  const newNumberTotalCounts: Record<string, number> = {};
+  entries.forEach(entry => {
+    const count = entry.count || 1;
+    newNumberTotalCounts[entry.number] = (newNumberTotalCounts[entry.number] || 0) + count;
+  });
+
+  const todayDateStr = new Date().toISOString().split('T')[0];
+  const numbersToCheck = Object.keys(newNumberTotalCounts);
+
+  // ✅ Step 2: Fetch existing DB counts
+  let existingCounts: Record<string, number> = {};
+  try {
+    const res = await fetch('https://manu-netflix.onrender.com/countByNumber', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        numbers: numbersToCheck,
+        date: todayDateStr,
+        timeLabel: selectedTime,
+      }),
+    });
+console.log('📨 Checking counts for:', {
+  numbers: numbersToCheck,
+  date: todayDateStr,
+  timeLabel: selectedTime,
+});
+
+    existingCounts = await res.json();
+  } catch (err) {
+    alert('❌ Failed to check number limits. Please try again.');
+    return;
+  }
+
+  // ✅ Step 3: Allow entries if total count per number is within limit
+  const maxCount = 50;
+  const totalSoFar: Record<string, number> = { ...existingCounts };
+  const validEntries: any[] = [];
+
+  for (const entry of entries) {
+    const num = entry.number;
+    const count = entry.count || 1;
+    const currentTotal = totalSoFar[num] || 0;
+
+    // Only allow if new count won't push it beyond 50
+    if (currentTotal + count <= maxCount) {
+      validEntries.push(entry);
+      totalSoFar[num] = currentTotal + count;
+    }
+  }
+
+  if (validEntries.length === 0) {
+    alert('⛔ All entries exceed the 50-count limit for some numbers.');
+    return;
+  }
+
+  // ✅ Step 4: Proceed to save
+  const payload = {
+    entries: validEntries,
+    timeLabel: selectedTime,
+    timeCode: selectedCode,
+    selectedAgent: selectedAgent || loggedInUser,
+    createdBy: selectedAgent || loggedInUser,
+    toggleCount: toggleCount,
+  };
 
   try {
     console.log('📤 Sending payload:', payload);
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 20000);
 
@@ -288,8 +516,8 @@ const payload = {
     const data = JSON.parse(text);
     if (response.ok) {
       setBillNumber(data?.billNo || '000000');
-      setSuccessModalVisible(true); // ✅ show modal
-      setEntries([]); // clear table
+      setSuccessModalVisible(true);
+      setEntries([]);
     } else {
       alert('❌ Error saving: ' + data.message);
     }
@@ -298,6 +526,7 @@ const payload = {
     alert('❌ Network error. Please try again.');
   }
 };
+
 
 
 
@@ -373,15 +602,17 @@ const payload = {
       <Text style={styles.successText}>Success</Text>
       <Text style={styles.billText}>Bill No #{billNumber}</Text>
       <View style={styles.buttonRow}>
-        <TouchableOpacity
-          style={[styles.successBtn, { backgroundColor: '#f85a8f' }]}
-          onPress={() => {
-            setSuccessModalVisible(false);
-            // Navigate or view bill
-          }}
-        >
-          <Text style={styles.successBtnText}>View Bill</Text>
-        </TouchableOpacity>
+<TouchableOpacity
+  style={[styles.successBtn, { backgroundColor: '#f85a8f' }]}
+  onPress={() => {
+    setSuccessModalVisible(false);
+    navigation.navigate('ViewBill', { billId: billNumber });
+  }}
+>
+  <Text style={styles.successBtnText}>View Bill</Text>
+</TouchableOpacity>
+
+
         <TouchableOpacity
           style={[styles.successBtn, { backgroundColor: '#d2f0df' }]}
           onPress={() => setSuccessModalVisible(false)}
@@ -433,26 +664,33 @@ const payload = {
   </View>
 ) : (
   <View style={styles.inputRow}>
- <TextInput
-  style={styles.input}
-  placeholder="Number"
-  value={number}
-  onChangeText={(text) => {
-    const clean = text.replace(/[^0-9]/g, ''); // remove non-numeric
-    const limited = clean.slice(0, toggleCount); // limit by toggleCount
-    setNumber(limited);
-  }}
-  keyboardType="numeric"
-/>
+  <TextInput
+    ref={numberInputRef} // 👈 attaches the ref
 
- <TextInput
-  ref={countInputRef} // this connects the input to the ref
-  style={styles.input}
-  placeholder="Count"
-  value={count}
-  onChangeText={(text) => setCount(text.replace(/[^0-9]/g, ''))}
-  keyboardType="numeric"
-/>
+        style={styles.input}
+        placeholder="Number"
+        value={number}
+        onChangeText={(text) => {
+          const clean = text.replace(/[^0-9]/g, '');
+          const limited = clean.slice(0, toggleCount);
+          setNumber(limited);
+
+          if (limited.length === toggleCount) {
+            countInputRef.current?.focus(); // 👈 jump focus
+          }
+        }}
+        keyboardType="numeric"
+        autoFocus={true}
+      />
+
+      <TextInput
+        ref={countInputRef}
+        style={styles.input}
+        placeholder="Count"
+        value={count}
+        onChangeText={(text) => setCount(text.replace(/[^0-9]/g, ''))}
+        keyboardType="numeric"
+      />
 
     {toggleCount === 3 && (
       <TextInput
@@ -472,7 +710,7 @@ const payload = {
   {toggleCount === 1 ? (
     <>
       <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#E91E63' }]} onPress={() => handleAddEntry(`${selectedCode}-A`)}>
-<Text style={styles.actionText}>{selectedCode}A</Text>
+onPress={focusNumberInput}<Text style={styles.actionText}>{selectedCode}A</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#9C27B0' }]} onPress={() => handleAddEntry(`${selectedCode}-B`)}>
 <Text style={styles.actionText}>{selectedCode}B</Text>
@@ -481,35 +719,35 @@ const payload = {
 <Text style={styles.actionText}>{selectedCode}C</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#007AFF' }]} onPress={() => handleAddEntry('ALL')}>
-        <Text style={styles.actionText}>ALL</Text>
+      onPress={focusNumberInput}  <Text style={styles.actionText}>ALL</Text>
       </TouchableOpacity>
     </>
   ) : toggleCount === 2 ? (
     <>
 <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#FF9800' }]} onPress={() => handleAddEntry(`${selectedCode}AB`)}>
-  <Text style={styles.actionText}>{selectedCode}AB</Text>
+onPress={focusNumberInput}  <Text style={styles.actionText}>{selectedCode}AB</Text>
 </TouchableOpacity>
 <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#795548' }]} onPress={() => handleAddEntry(`${selectedCode}AC`)}>
-  <Text style={styles.actionText}>{selectedCode}AC</Text>
+ onPress={focusNumberInput} <Text style={styles.actionText}>{selectedCode}AC</Text>
 </TouchableOpacity>
 <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#03A9F4' }]} onPress={() => handleAddEntry(`${selectedCode}BC`)}>
-  <Text style={styles.actionText}>{selectedCode}BC</Text>
+ onPress={focusNumberInput} <Text style={styles.actionText}>{selectedCode}BC</Text>
 </TouchableOpacity>
 <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#007AFF' }]} onPress={() => handleAddEntry('ALL')}>
-  <Text style={styles.actionText}>ALL</Text>
+onPress={focusNumberInput}  <Text style={styles.actionText}>ALL</Text>
 </TouchableOpacity>
 
     </>
   ) : (
     <>
-      <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#4CAF50' }]} onPress={() => handleAddEntry(`${selectedCode}SUPER`)}>
-        <Text style={styles.actionText}>{selectedCode}SUPER</Text>
+      <TouchableOpacity onPress={() => handleAdd('super')} style={[styles.actionButton, { backgroundColor: '#4CAF50' }]} onPress={() => handleAddEntry(`${selectedCode}SUPER`)}>
+       onPress={focusNumberInput} <Text style={styles.actionText}>{selectedCode}SUPER</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#9C27B0' }]} onPress={() => handleAddEntry(`${selectedCode}BOX`)}>
-        <Text style={styles.actionText}>{selectedCode}BOX</Text>
+      onPress={focusNumberInput}  <Text style={styles.actionText}>{selectedCode}BOX</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#007AFF' }]} onPress={() => handleAddEntry('ALL')}>
-        <Text style={styles.actionText}>ALL</Text>
+       onPress={focusNumberInput} <Text style={styles.actionText}>ALL</Text>
       </TouchableOpacity>
     </>
   )}

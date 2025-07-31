@@ -21,18 +21,33 @@ export default function SalesReportScreen() {
   const [allUsers, setAllUsers] = useState<string[]>([]);
   const [selectedAgent, setSelectedAgent] = useState('');
   const [loggedInUser, setLoggedInUser] = useState('');
+const [selectedTime, setSelectedTime] = useState('all');
 
-  useEffect(() => {
-    const loadUserAndUsers = async () => {
-      try {
-        const storedUser = await AsyncStorage.getItem('username');
-        if (storedUser) setLoggedInUser(storedUser);
+const formatDate = (date: Date | undefined) => {
+  if (!date) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+ 
+useEffect(() => {
+  const loadUserAndUsers = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('username');
+      if (storedUser) {
+        setLoggedInUser(storedUser);
 
         const response = await fetch('https://manu-netflix.onrender.com/users');
         const data = await response.json();
 
         if (response.ok && Array.isArray(data)) {
-          const usernames = data
+          const filteredUsers = data.filter(
+            (u: any) => u.createdBy === storedUser
+          );
+
+          const usernames = filteredUsers
             .map((u: any) => u.username)
             .filter((username: any) => typeof username === 'string' && username.trim() !== '');
 
@@ -40,44 +55,67 @@ export default function SalesReportScreen() {
         } else {
           console.error('Invalid data format from API');
         }
-      } catch (err) {
-        console.error('❌ Error loading users:', err);
       }
-    };
-
-    loadUserAndUsers();
-  }, []);
-
-  const handleGenerateReport = async () => {
-    try {
-      const formattedDate = fromDate.toLocaleDateString('en-GB');
-      const response = await fetch(`https://manu-netflix.onrender.com/entries?createdBy=${selectedAgent}&createdAt=${formattedDate}`);
-      const data = await response.json();
-
-      console.log('📦 API data:', JSON.stringify(data, null, 2));
-
-      let totalCount = 0;
-
-      data.forEach((entry) => {
-        const count = Number(entry.count);
-        if (!isNaN(count)) {
-          totalCount += count;
-        }
-      });
-
-      const amount = totalCount * 10;
-
-      console.log('✅ Count:', totalCount, 'Amount:', amount);
-
-      navigation.navigate('SalesReportSummery', {
-        count: totalCount,
-        amount,
-        date: formattedDate,
-      });
-    } catch (error) {
-      console.error('❌ Error generating report:', error);
+    } catch (err) {
+      console.error('❌ Error loading users:', err);
     }
   };
+
+  loadUserAndUsers();
+}, []);
+
+
+const handleGenerateReport = async () => {
+  try {
+    const formatDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const from = formatDate(fromDate); // YYYY-MM-DD
+    const to = formatDate(toDate);     // YYYY-MM-DD
+
+    const query = new URLSearchParams({
+      createdBy: selectedAgent,
+      timeLabel: selectedTime !== 'all' ? selectedTime : '',
+      fromDate: from,
+      toDate: to,
+    }).toString();
+
+    const response = await fetch(`https://manu-netflix.onrender.com/entries?${query}`);
+    const data = await response.json();
+
+    console.log('📦 Query URL:', `https://manu-netflix.onrender.com/entries?${query}`);
+
+    let totalCount = 0;
+    data.forEach((entry) => {
+      const count = Number(entry.count);
+      if (!isNaN(count)) totalCount += count;
+    });
+
+    const amount = totalCount * 10;
+
+    // ✅ Only one navigation
+    navigation.navigate('SalesReportSummery', {
+      count: totalCount,
+      amount,
+      date: `${from} to ${to} (${selectedTime})`,
+      fromDate: from,
+      toDate: to,
+      createdBy: selectedAgent,
+      timeLabel: selectedTime,
+      entries: data,
+    });
+  } catch (error) {
+    console.error('❌ Error generating report:', error);
+  }
+};
+
+
+
+
 
   return (
     <View style={styles.container}>
@@ -92,13 +130,17 @@ export default function SalesReportScreen() {
       </View>
 
       <View style={styles.form}>
-        <Picker style={styles.picker}>
-          <Picker.Item label="ALL" value="all" />
-          <Picker.Item label="DEAR 1 PM" value="1 PM" />
-          <Picker.Item label="LSK 3 PM" value="3 PM" />
-          <Picker.Item label="DEAR 6 PM" value="6 PM" />
-          <Picker.Item label="DEAR 8 PM" value="8 PM" />
-        </Picker>
+       <Picker
+  selectedValue={selectedTime}
+  onValueChange={(value) => setSelectedTime(value)}
+  style={styles.picker}
+>
+  <Picker.Item label="ALL" value="all" />
+  <Picker.Item label="DEAR 1 PM" value="DEAR 1 PM" />
+  <Picker.Item label="LSK 3 PM" value="LSK 3 PM" />
+  <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" />
+  <Picker.Item label="DEAR 8 PM" value="DEAR 8 PM" />
+</Picker>
 
         <View style={styles.row}>
           <View style={styles.dateInput}>

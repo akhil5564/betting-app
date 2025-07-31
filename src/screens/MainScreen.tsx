@@ -42,14 +42,16 @@ useEffect(() => {
         <Text style={styles.headerText}>Hello, {username}</Text>
       </View>
 
-      <MenuButton icon="plus-circle-outline" label="Add" onPress={() => navigation.navigate('Add')} />
-      <MenuButton icon="pencil-outline" label="Edit / Delete" onPress={() => navigation.navigate('Edit')} />
-      <MenuButton icon="file-document-outline" label="Reports" onPress={() => navigation.navigate('Reports')} />
-      <MenuButton icon="percent-outline" label="Manage Sales" onPress={() => navigation.navigate('ManageSales')} />
-      <MenuButton icon="account-group-outline" label="Manage Users" onPress={() => navigation.navigate('UsersScreen')} />
-      <MenuButton icon="bell-outline" label="Results" onPress={() => navigation.navigate('Result')} />
+  <MenuButton icon="plus-circle-outline" label="Add" onPress={() => navigation.navigate('Add')} />
+<MenuButton icon="pencil-outline" label="Edit / Delete" onPress={() => navigation.navigate('Edit')} />
+<MenuButton icon="file-document-outline" label="Reports" onPress={() => navigation.navigate('Reports')} />
+<MenuButton icon="percent-outline" label="Manage Sales" onPress={() => navigation.navigate('ManageSales')} />
+{usertype !== 'sub' && (
+  <MenuButton icon="account-group-outline" label="Manage Users" onPress={() => navigation.navigate('UsersScreen')} />
+)}
+<MenuButton icon="bell-outline" label="Results" onPress={() => navigation.navigate('Result')} />
 {usertype === 'admin' && (
-  <MenuButton icon="bell-outline" label="More" onPress={() => navigation.navigate('')} />
+  <MenuButton icon="bell-outline" label="More" onPress={() => navigation.navigate('MORE')} />
 )}
 
       <MenuButton

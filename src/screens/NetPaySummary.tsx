@@ -6,6 +6,7 @@ import {
   ScrollView,
   Animated,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useRoute } from '@react-navigation/native';
@@ -22,6 +23,10 @@ export default function WinningDetailed() {
     matchedEntries = [],
   } = route.params || {};
 
+  const [salesAmount, setSalesAmount] = useState(0);
+  const [entryCount, setEntryCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
   const winningAmount = matchedEntries.reduce(
     (sum, entry) => sum + (entry.total || 0),
     0
@@ -34,6 +39,11 @@ export default function WinningDetailed() {
 
   const totalAmount = winningAmount - totalSuper;
 
+  const totalEntryAmount = matchedEntries.reduce(
+    (sum, entry) => sum + (entry.count || 0) * 10,
+    0
+  );
+
   const groupedEntries = matchedEntries.reduce((acc, entry) => {
     if (!acc[entry.username]) acc[entry.username] = [];
     acc[entry.username].push(entry);
@@ -42,10 +52,6 @@ export default function WinningDetailed() {
 
   const [selectedUser, setSelectedUser] = useState('All');
   const usernames = Object.keys(groupedEntries);
-  const displayedEntries =
-    selectedUser === 'All'
-      ? groupedEntries
-      : { [selectedUser]: groupedEntries[selectedUser] };
 
   const confettis = Array.from({ length: 20 }).map(() => ({
     top: useRef(new Animated.Value(-50)).current,
@@ -63,9 +69,38 @@ export default function WinningDetailed() {
     });
   }, []);
 
+  useEffect(() => {
+    const fetchSalesAmount = async () => {
+      try {
+        const res = await fetch(`https://manu-netflix.onrender.com/entries?fromDate=${fromDate}&toDate=${toDate}}`);
+        const data = await res.json();
+
+        const total = data.reduce((sum, entry) => {
+          return sum + (entry.count || 0) ;
+        }, 0);
+
+        const totalCount = data.reduce((sum, entry) => {
+          return sum + (entry.count || 0);
+        }, 0);
+
+        setSalesAmount(total);
+        setEntryCount(totalCount);
+      } catch (err) {
+        console.error('Error fetching sales amount:', err);
+        setSalesAmount(0);
+        setEntryCount(0);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSalesAmount();
+  }, [fromDate, toDate, time]);
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.subheading}>
             📅 {fromDate} → {toDate}   |  ⏰ {time}
@@ -79,20 +114,22 @@ export default function WinningDetailed() {
             <Text style={styles.summaryValue}>: {time}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Total Amount</Text>
-            <Text style={styles.summaryValue}>: ₹{totalAmount}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Total Super</Text>
-            <Text style={styles.summaryValue}>: ₹{totalSuper}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: '#b71c1c' }]}>Grand Total</Text>
+            <Text style={styles.summaryLabel}>Sales Amount</Text>
+            <Text style={styles.summaryValue}>: ₹{loading ? '...' : salesAmount}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: '#b71c1c' }]}>Total Winning</Text>
             <Text style={[styles.summaryValue, { color: '#b71c1c' }]}>: ₹{winningAmount}</Text>
           </View>
         </View>
 
-        {/* User Filter */}
+        {/* Optional User Filter */}
         {usernames.length > 1 && (
           <View style={styles.pickerBox}>
             <Text style={styles.pickerLabel}>Filter by user:</Text>
@@ -108,48 +145,9 @@ export default function WinningDetailed() {
             </Picker>
           </View>
         )}
-
-        {/* Table Section */}
-        {Object.keys(displayedEntries).length === 0 ? (
-          <Text style={styles.noData}>No matched entries found.</Text>
-        ) : (
-          Object.entries(displayedEntries).map(([username, entries]) => {
-            const userTotal = entries.reduce((sum, e) => sum + (e.total || 0), 0);
-            return (
-              <View key={username} style={styles.tableWrapper}>
-                <Text style={styles.userTitle}>{username}</Text>
-                <View style={styles.tableRowHeader}>
-                  <Text style={styles.tableHeaderCell}>Number</Text>
-                  <Text style={styles.tableHeaderCell}>Type</Text>
-                  <Text style={styles.tableHeaderCell}>Qty</Text>
-                  <Text style={styles.tableHeaderCell}>Super</Text>
-                  <Text style={styles.tableHeaderCell}>Total</Text>
-                </View>
-                {entries.map((entry, idx) => (
-                  <View
-                    key={idx}
-                    style={[
-                      styles.tableRow,
-                      idx % 2 !== 0 ? styles.altRow : {},
-                    ]}
-                  >
-                    <Text style={styles.cell}>{entry.number}</Text>
-                    <Text style={styles.cell}>{entry.type}</Text>
-                    <Text style={styles.cell}>{entry.count}</Text>
-                    <Text style={styles.cell}>₹{entry.super * entry.count}</Text>
-                    <Text style={[styles.cell, { color: '#b71c1c', fontWeight: 'bold' }]}>
-                      ₹{entry.total}
-                    </Text>
-                  </View>
-                ))}
-                <Text style={styles.userTotal}> Total: ₹{userTotal}</Text>
-              </View>
-            );
-          })
-        )}
       </ScrollView>
 
-      {/* Confetti */}
+      {/* Confetti Animation */}
       {confettis.map((item, index) => (
         <Animated.Text
           key={index}
@@ -178,7 +176,6 @@ const styles = StyleSheet.create({
   },
   summaryBox: {
     backgroundColor: '#f9f9f9',
-    marginHorizontal: 0,
     padding: 14,
     borderBottomWidth: 1,
     borderColor: '#ccc',
@@ -214,62 +211,8 @@ const styles = StyleSheet.create({
   picker: {
     height: 44,
   },
-  tableWrapper: {
-    paddingBottom: 10,
-  },
-  userTitle: {
-    backgroundColor: '#b71c1c',
-    color: '#fff',
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: 'bold',
-    paddingVertical: 8,
-  },
-  tableRowHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#c62828',
-    paddingVertical: 10,
-  },
-  tableHeaderCell: {
-    flex: 1,
-    textAlign: 'center',
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-  },
-  altRow: {
-    backgroundColor: '#fdecea',
-  },
-  cell: {
-    flex: 1,
-    textAlign: 'center',
-    fontWeight: 'bold',
-    fontSize: 13,
-    color: '#000',
-  },
-  userTotal: {
-    textAlign: 'right',
-    padding: 8,
-    fontWeight: 'bold',
-    color: '#1b5e20',
-    backgroundColor: '#e8f5e9',
-  },
   confetti: {
     position: 'absolute',
     fontSize: 20,
   },
-  noData: {
-    textAlign: 'center',
-    padding: 20,
-    color: '#999',
-    fontWeight: '600',
-  },
 });
-

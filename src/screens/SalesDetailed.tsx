@@ -8,13 +8,22 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons, AntDesign } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RootStackParamList = {
   EditDeleteBill: { billNo: string };
   Main: undefined;
+  SalesReportDetailedAll: {
+    fromDate: string;
+    toDate: string;
+    createdBy?: string;
+    timeLabel?: string;
+    entries?: EntryItem[];
+  };
 };
+
+type SalesReportRouteProp = RouteProp<RootStackParamList, 'SalesReportDetailedAll'>;
 
 interface EntryItem {
   _id: string;
@@ -38,40 +47,60 @@ interface GroupedEntry {
 
 const SalesReportDetailedAll = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<SalesReportRouteProp>();
+  const { fromDate, toDate, createdBy, timeLabel, entries } = route.params || {};
+
   const [groupedEntries, setGroupedEntries] = useState<GroupedEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchAll = async () => {
+    const fetchFilteredEntries = async () => {
       try {
-        const res = await fetch('https://manu-netflix.onrender.com/entries');
+        if (entries && Array.isArray(entries)) {
+          groupAndSet(entries);
+          setLoading(false);
+          return;
+        }
+
+        const query = new URLSearchParams({
+          fromDate,
+          toDate,
+          createdBy: createdBy || '',
+          timeLabel: timeLabel && timeLabel !== 'all' ? timeLabel : '',
+        }).toString();
+
+        const res = await fetch(`https://manu-netflix.onrender.com/entries?${query}`);
         const data: EntryItem[] = await res.json();
 
-        const grouped: { [key: string]: GroupedEntry } = {};
-
-        data.forEach((entry) => {
-          const key = entry.billNo || entry._id;
-          if (!grouped[key]) {
-            grouped[key] = {
-              billNo: key,
-              createdAt: entry.createdAt,
-              createdBy: entry.createdBy,
-              timeLabel: entry.timeLabel,
-              items: [],
-            };
-          }
-          grouped[key].items.push(entry);
-        });
-
-        setGroupedEntries(Object.values(grouped));
+        console.log('📦 Query URL:', `https://manu-netflix.onrender.com/entries?${query}`);
+        groupAndSet(data);
       } catch (err) {
         console.error('❗ Fetch error:', err);
       } finally {
         setLoading(false);
       }
     };
-    fetchAll();
-  }, []);
+
+    const groupAndSet = (data: EntryItem[]) => {
+      const grouped: { [key: string]: GroupedEntry } = {};
+      data.forEach((entry) => {
+        const key = entry.billNo || entry._id;
+        if (!grouped[key]) {
+          grouped[key] = {
+            billNo: key,
+            createdAt: entry.createdAt,
+            createdBy: entry.createdBy,
+            timeLabel: entry.timeLabel,
+            items: [],
+          };
+        }
+        grouped[key].items.push(entry);
+      });
+      setGroupedEntries(Object.values(grouped));
+    };
+
+    fetchFilteredEntries();
+  }, [fromDate, toDate, createdBy, timeLabel, entries]);
 
   const renderGroupedEntry = ({ item }: { item: GroupedEntry }) => {
     const totalCount = item.items.reduce((sum, i) => sum + i.count, 0);
@@ -132,7 +161,7 @@ const SalesReportDetailedAll = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>All Sales Report Entries</Text>
+        <Text style={styles.headerTitle}>Filtered Sales Report</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Main')}>
           <AntDesign name="home" size={24} color="red" />
         </TouchableOpacity>

@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-// Screens
+
 import ViewBillScreen from './src/screens/ViewBillScreen';
 
 import SplashScreen from './src/screens/SplashScreen';
@@ -34,7 +34,10 @@ import TicketLimitScreen from './src/screens/TicketLimitScreen';
 import NumberWiseReportResult from './src/screens/NumberWiseReportResult'
 import Schemes from './src/screens/Schemes'
 import WinningDetailed from './src/screens/WinningDetailed'
-import TimeBlockSelector from './src/screens/TimeBlockSelector'
+import MORE from './src/screens/MORE'
+import TimeBlockSettingsScreen from './src/screens/TimeBlockSettingsScreen';
+import NetPaySummary from './src/screens/NetPaySummary';
+
 export type RootStackParamList = {
   Splash: undefined;
   Login: undefined;
@@ -61,8 +64,13 @@ export type RootStackParamList = {
   SalesReportDetailed: { date: string };
   Paste: undefined;
   TicketLimit: undefined;
-  ViewBillScreen:undefined;
+  ViewBill: undefined;
+  NumberWiseReportResult: undefined;
+  winningdetailed: undefined;
+  MORE: undefined;
+  Schemes: undefined;
 };
+
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -99,9 +107,11 @@ export default function App() {
             <Stack.Screen name="ViewBill" component={ViewBillScreen} />
 <Stack.Screen name="NumberWiseReportResult" component={NumberWiseReportResult} />
 <Stack.Screen name="winningdetailed" component={WinningDetailed} />
-<Stack.Screen name="timeblock" component={TimeBlockSelector} />
+<Stack.Screen name="MORE" component={MORE} />
+<Stack.Screen name="netdetailed" component={NetPaySummary} />
 
 <Stack.Screen name="Schemes" component={Schemes} />
+<Stack.Screen name="timeset" component={TimeBlockSettingsScreen} />
 
         </Stack.Navigator>
       </NavigationContainer>

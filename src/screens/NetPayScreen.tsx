@@ -1,51 +1,227 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Platform,
+  Alert,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SalesReportScreen() {
-  const navigation = useNavigation();
+   const navigation = useNavigation();
   const [fromDate, setFromDate] = useState(new Date());
   const [toDate, setToDate] = useState(new Date());
   const [showFrom, setShowFrom] = useState(false);
   const [showTo, setShowTo] = useState(false);
+  const [selectedTime, setSelectedTime] = useState('DEAR 6PM');
+  const [allUsers, setAllUsers] = useState<string[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState('');
+  const [loggedInUser, setLoggedInUser] = useState('');
+  const [ticketNumber, setTicketNumber] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [selectedMode, setSelectedMode] = useState('');
+  useEffect(() => {
+    const loadUserAndUsers = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem('username');
+        if (storedUser) setLoggedInUser(storedUser);
+
+        const response = await fetch('https://manu-netflix.onrender.com/users');
+        const data = await response.json();
+
+        if (response.ok && Array.isArray(data)) {
+          const usernames = data
+            .map((u: any) => u.username)
+            .filter((username: any) => typeof username === 'string' && username.trim() !== '');
+          setAllUsers(usernames);
+        } else {
+          console.error('Invalid data format from API');
+        }
+      } catch (err) {
+        console.error('❌ Error loading users:', err);
+      }
+    };
+
+    loadUserAndUsers();
+  }, []);
+
+  const formatDate = (date: Date) => {
+    return date.toISOString().split('T')[0];
+  };
+
+  
+const handleGenerate = async () => {
+  try {
+    const entriesRes = await fetch('https://manu-netflix.onrender.com/entries');
+    const entriesData = await entriesRes.json();
+    const entries = entriesData || [];
+
+    const matchedEntries: any[] = [];
+    const schemeRates = {
+      A: { amount: 100, super: 0 },
+      B: { amount: 100, super: 0 },
+      C: { amount: 100, super: 0 },
+      AB: { amount: 700, super: 30 },
+      AC: { amount: 700, super: 30 },
+      BC: { amount: 700, super: 30 },
+      BOX: { amount: 800, super: 0 },
+      SUPER: { amount: 5000, super: 400 },
+    };
+
+    const drawTimes = selectedTime === 'ALL'
+      ? ['DEAR 1PM', 'LSK 3PM', 'DEAR 6PM', 'DEAR 8PM']
+      : [selectedTime];
+
+    let dateCursor = new Date(fromDate);
+    while (dateCursor <= toDate) {
+      const formattedDate = formatDate(dateCursor);
+
+      for (const drawTime of drawTimes) {
+        const resultUrl = `https://manu-netflix.onrender.com/getResult?date=${formattedDate}&time=${encodeURIComponent(drawTime)}`;
+        const resultRes = await fetch(resultUrl);
+        const resultData = await resultRes.json();
+
+        const prizes = resultData?.results?.[formattedDate]
+          ?.find(r => Object.keys(r)[0] === drawTime)?.[drawTime]?.prizes || [];
+
+        for (const prize of prizes) {
+          const digits = prize.split('');
+
+          const results = entries
+            .filter(entry => {
+              const entryDate = formatDate(new Date(entry.createdAt));
+              if (entryDate !== formattedDate) return false;
+
+              // ✅ Apply filters
+              if (selectedAgent && entry.username !== selectedAgent) return false;
+              if (selectedGroup && entry.group !== selectedGroup) return false;
+              if (selectedMode && entry.mode !== selectedMode) return false;
+              if (ticketNumber && entry.ticket !== ticketNumber) return false;
+
+              return true;
+            })
+            .map(entry => {
+              const { number, type, count = 0, username } = entry;
+              if (!type || typeof type !== 'string') return null;
+
+              const baseType = type.replace(/^.*?(-|)(A|B|C|AB|AC|BC|BOX|SUPER)$/, '$2');
+
+              let isMatch = false;
+              switch (baseType) {
+                case 'A': isMatch = number === digits[0]; break;
+                case 'B': isMatch = number === digits[1]; break;
+                case 'C': isMatch = number === digits[2]; break;
+                case 'AB': isMatch = number === digits[0] + digits[1]; break;
+                case 'AC': isMatch = number === digits[0] + digits[2]; break;
+                case 'BC': isMatch = number === digits[1] + digits[2]; break;
+                case 'BOX':
+                case 'SUPER': isMatch = number === prize; break;
+              }
+
+              if (isMatch) {
+                const { amount, super: superAmt } = schemeRates[baseType] || { amount: 0, super: 0 };
+                const total = (amount + superAmt) * count;
+                return {
+                  number,
+                  type,
+                  count,
+                  username,
+                  amount,
+                  super: superAmt,
+                  total,
+                  date: formattedDate,
+                  drawTime,
+                };
+              }
+
+              return null;
+            })
+            .filter(Boolean);
+
+          matchedEntries.push(...results);
+        }
+      }
+
+      dateCursor.setDate(dateCursor.getDate() + 1);
+    }
+
+    navigation.navigate('netdetailed', {
+      fromDate: formatDate(fromDate),
+      toDate: formatDate(toDate),
+      time: selectedTime,
+      matchedEntries,
+    });
+  } catch (error) {
+    console.error('❌ Error generating report:', error);
+    Alert.alert('Error fetching data');
+  }
+};
+
+
+
+
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerText}>Sales Report</Text>
-<TouchableOpacity onPress={() => navigation.navigate('Main')}>
-  <Ionicons name="home" size={24} color="red" />
-</TouchableOpacity>
+        <Text style={styles.headerText}>Winning Report</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Main')}>
+          <Ionicons name="home" size={24} color="#c62828" />
+        </TouchableOpacity>
       </View>
 
-      {/* Form Card */}
-      <View style={styles.form}>
-        <Picker style={styles.picker}>
-          <Picker.Item label="ALL" value="all" />
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Ticket Number</Text>
+        <TextInput
+          placeholder="Enter Ticket Number"
+          value={ticketNumber}
+          onChangeText={setTicketNumber}
+          style={styles.input}
+        />
+
+        <View style={styles.row}>
+          <View style={styles.column}>
+            <Text style={styles.sectionTitle}>Group</Text>
+            <Picker selectedValue={selectedGroup} onValueChange={setSelectedGroup} style={styles.picker}>
+              <Picker.Item label="Select Group" value="" />
+              <Picker.Item label="Group 1" value="1" />
+              <Picker.Item label="Group 2" value="2" />
+              <Picker.Item label="Group 3" value="3" />
+            </Picker>
+          </View>
+          <View style={styles.column}>
+            <Text style={styles.sectionTitle}>Mode</Text>
+            <Picker selectedValue={selectedMode} onValueChange={setSelectedMode} style={styles.picker}>
+              <Picker.Item label="Select Mode" value="" />
+              <Picker.Item label="Manual" value="manual" />
+              <Picker.Item label="Auto" value="auto" />
+            </Picker>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Draw Time</Text>
+        <Picker selectedValue={selectedTime} onValueChange={setSelectedTime} style={styles.picker}>
+          <Picker.Item label="ALL" value="ALL" />
+          <Picker.Item label="DEAR 1 PM" value="DEAR 1PM" />
+          <Picker.Item label="LSK 3 PM" value="LSK 3PM" />
+          <Picker.Item label="DEAR 6 PM" value="DEAR 6PM" />
+          <Picker.Item label="DEAR 8 PM" value="DEAR 8PM" />
         </Picker>
 
-        {/* Date Range Row */}
         <View style={styles.row}>
-          <View style={styles.dateInput}>
-            <Text style={styles.label}>From</Text>
-            <TouchableOpacity onPress={() => setShowFrom(true)}>
-              <Text style={styles.dateText}>
-                {fromDate.toLocaleDateString()}
-              </Text>
+          <View style={styles.column}>
+            <Text style={styles.sectionTitle}>From Date</Text>
+            <TouchableOpacity onPress={() => setShowFrom(true)} style={styles.input}>
+              <Text>{fromDate.toLocaleDateString()}</Text>
             </TouchableOpacity>
             {showFrom && (
               <DateTimePicker
@@ -60,16 +236,10 @@ export default function SalesReportScreen() {
             )}
           </View>
 
-          <View style={styles.equalBox}>
-            <Text style={styles.equalText}>=</Text>
-          </View>
-
-          <View style={styles.dateInput}>
-            <Text style={styles.label}>To</Text>
-            <TouchableOpacity onPress={() => setShowTo(true)}>
-              <Text style={styles.dateText}>
-                {toDate.toLocaleDateString()}
-              </Text>
+          <View style={styles.column}>
+            <Text style={styles.sectionTitle}>To Date</Text>
+            <TouchableOpacity onPress={() => setShowTo(true)} style={styles.input}>
+              <Text>{toDate.toLocaleDateString()}</Text>
             </TouchableOpacity>
             {showTo && (
               <DateTimePicker
@@ -85,125 +255,89 @@ export default function SalesReportScreen() {
           </View>
         </View>
 
-        {/* Ticket Number */}
-        <TextInput
-          placeholder="Ticket Number"
-          placeholderTextColor="#999"
-          style={styles.input}
-        />
-
-        {/* Group & Mode */}
-        <View style={styles.row}>
-          <Picker style={styles.halfPicker}>
-            <Picker.Item label="Select" value="" />
-          </Picker>
-          <Picker style={styles.halfPicker}>
-            <Picker.Item label="Mode" value="" />
-          </Picker>
-        </View>
-
-        {/* Agent */}
-        <Picker style={styles.picker}>
-          <Picker.Item label="Agent" value="" />
+        <Text style={styles.sectionTitle}>Agent</Text>
+        <Picker selectedValue={selectedAgent} onValueChange={setSelectedAgent} style={styles.picker}>
+          <Picker.Item label={`Logged in: ${loggedInUser}`} value="" enabled={false} />
+          {allUsers.map((username, i) => (
+            <Picker.Item key={i} label={username} value={username} />
+          ))}
         </Picker>
 
-        {/* Generate Report Button */}
-        <TouchableOpacity style={styles.generateButton}>
-          <Text style={styles.generateButtonText}>Generate Report</Text>
+        <TouchableOpacity style={styles.button} onPress={handleGenerate}>
+          <Text style={styles.buttonText}>Generate Report</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f2f2',
-    marginTop: 30,
+    backgroundColor: '#f8f9fa',
+    paddingTop: 30,
   },
   header: {
     flexDirection: 'row',
-    padding: 16,
-    backgroundColor: '#fff',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    elevation: 3,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   headerText: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#222',
   },
-  form: {
-    backgroundColor: '#fff',
+  card: {
     margin: 16,
-    padding: 16,
-    borderRadius: 10,
-    elevation: 2,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    elevation: 3,
   },
-  picker: {
-    backgroundColor: '#f4f4f4',
-    borderRadius: 5,
-    marginBottom: 10,
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#b71c1c',
+    marginBottom: 6,
+    marginTop: 12,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#f1f3f5',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+    fontSize: 14,
     borderWidth: 1,
     borderColor: '#ddd',
-    padding: 12,
-    borderRadius: 5,
+  },
+  picker: {
+    backgroundColor: '#f1f3f5',
+    borderRadius: 8,
     marginBottom: 10,
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 10,
   },
-  dateInput: {
+  column: {
     flex: 1,
+    marginRight: 8,
   },
-  label: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  dateText: {
-    padding: 12,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-  },
-  equalBox: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#ff2e63',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 5,
-    marginTop: 16,
-  },
-  equalText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  halfPicker: {
-    flex: 1,
-    backgroundColor: '#f4f4f4',
-    borderRadius: 5,
-  },
-  generateButton: {
-    backgroundColor: '#ff2e63',
-    padding: 14,
-    borderRadius: 5,
+  button: {
+    backgroundColor: '#c62828',
+    paddingVertical: 14,
+    borderRadius: 8,
     marginTop: 20,
   },
-  generateButtonText: {
+  buttonText: {
     color: '#fff',
     fontWeight: 'bold',
+    fontSize: 15,
     textAlign: 'center',
   },
 });
+

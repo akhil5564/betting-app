@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,16 +10,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import Checkbox from 'expo-checkbox';
 import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react'; // <-- ✅ Add useEffect here
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const initialData = [
-  { name: 'DEAR1-SUPER', rate: '8', assignRate: '8' },
-  { name: 'DEAR1-BOX', rate: '8', assignRate: '8' },
-  { name: 'DEAR1-AB', rate: '8', assignRate: '8' },
-  { name: 'DEAR1-BC', rate: '8', assignRate: '8' },
-  { name: 'DEAR1-AC', rate: '8', assignRate: '8' },
-  { name: 'DEAR1-A', rate: '10.6', assignRate: '10.6' },
-  { name: 'DEAR1-B', rate: '10.6', assignRate: '10.6' },
-  { name: 'DEAR1-C', rate: '10.6', assignRate: '10.6' },
+  { name: 'SUPER', rate: '0', assignRate: '0' },
+  { name: 'BOX', rate: '0', assignRate: '0' },
+  { name: 'AB', rate: '0', assignRate: '0' },
+  { name: 'BC', rate: '0', assignRate: '0' },
+  { name: 'AC', rate: '0', assignRate: '0' },
+  { name: 'A', rate: '0', assignRate: '0' },
+  { name: 'B', rate: '0', assignRate: '0' },
+  { name: 'C', rate: '0', assignRate: '0' },
 ];
 
 const RateMasterScreen = () => {
@@ -30,12 +31,15 @@ const RateMasterScreen = () => {
   const [editAll, setEditAll] = useState(false);
   const [ticketData, setTicketData] = useState(initialData);
   const [checkedItems, setCheckedItems] = useState(initialData.map(() => true));
+const [userList, setUserList] = useState<string[]>([]);
 
   const handleCheckboxChange = (index: number) => {
     const updated = [...checkedItems];
     updated[index] = !updated[index];
     setCheckedItems(updated);
   };
+
+
 
 const handleAssignRateChange = (text: string, index: number) => {
   const updated = [...ticketData];
@@ -44,7 +48,78 @@ const handleAssignRateChange = (text: string, index: number) => {
   setTicketData(updated);
 };
 
+useEffect(() => {
+  const fetchAndFilterUsers = async () => {
+    try {
+      const storedUsername = await AsyncStorage.getItem('username'); // get logged in user
+      if (!storedUsername) return;
 
+      const res = await fetch('https://manu-netflix.onrender.com/users');
+      const data = await res.json();
+
+      // Filter users by createdBy === loggedInUser
+      const filteredUsers = data.filter((user: any) => user.createdBy === storedUsername);
+      const usernames = filteredUsers.map((user: any) => user.username);
+
+      setUserList(usernames);
+      if (usernames.length > 0) {
+        setSelectedUser(usernames[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching usernames:', error);
+    }
+  };
+
+  fetchAndFilterUsers();
+}, []);
+
+const handleSave = async () => {
+  try {
+    // Convert ticketData to expected backend format
+    const modifiedRates = ticketData.map((item) => ({
+      label: item.name.toUpperCase(),
+      rate: Number(item.rate),
+    }));
+
+    const payload = {
+      user: selectedUser,
+      draw: selectedDraw,
+      rates: modifiedRates,
+    };
+
+    await saveRateData(payload);
+  } catch (error) {
+    console.error('Error in handleSave:', error);
+  }
+};
+
+const saveRateData = async (payload) => {
+  try {
+    const response = await fetch('https://manu-netflix.onrender.com/ratemaster', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log('✅ Rate data saved successfully');
+      console.log('👤 User:', data.data?.user);
+      console.log('🕐 Draw:', data.data?.draw);
+      console.log('📊 Rates:', data.data?.rates);
+      alert('✅ Rate data saved successfully');
+    } else {
+      console.error('❌ Failed to save rate data:', data);
+      alert('❌ Failed to save rate data');
+    }
+  } catch (error) {
+    console.error('❌ Error saving rate data:', error);
+    alert('❌ An error occurred while saving');
+  }
+};
 
   const renderRow = ({ item, index }: any) => (
     <View style={styles.row}>
@@ -83,9 +158,10 @@ const handleAssignRateChange = (text: string, index: number) => {
           <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Rate Master</Text>
-        <TouchableOpacity style={styles.saveButton}>
-          <Text style={styles.saveText}>SAVE</Text>
-        </TouchableOpacity>
+       <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+  <Text style={styles.saveText}>SAVE</Text>
+</TouchableOpacity>
+
       </View>
 
       {/* Filter card */}
@@ -102,11 +178,16 @@ const handleAssignRateChange = (text: string, index: number) => {
         </View>
 
         <View style={styles.pickerBox}>
-          <Picker selectedValue={selectedUser} onValueChange={setSelectedUser}>
-            <Picker.Item label="Fr" value="Fr" />
-            <Picker.Item label="user1" value="user1" />
-            <Picker.Item label="user2" value="user2" />
-          </Picker>
+          <Picker
+  selectedValue={selectedUser}
+  onValueChange={(itemValue) => setSelectedUser(itemValue)}
+  style={styles.picker}
+>
+  {userList.map((username) => (
+    <Picker.Item key={username} label={username} value={username} />
+  ))}
+</Picker>
+
         </View>
 
         <View style={styles.editAllRow}>

@@ -6,30 +6,39 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import BlockNumberScreen from './BlockNumberScreen';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 const UserDetailScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute();
+  const { user } = route.params || {};
+
+  if (!user) {
+    return (
+      <View style={styles.center}>
+        <Text>No user data provided.</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.header}>Users</Text>
+      <Text style={styles.header}>User Details</Text>
 
       <View style={styles.card}>
         {/* Row 1 */}
         <View style={styles.row}>
           <View style={styles.column}>
             <Text style={styles.label}>Name</Text>
-            <Text style={styles.value}>Fr</Text>
+            <Text style={styles.value}>{user.username}</Text>
           </View>
           <View style={styles.column}>
             <Text style={styles.label}>Type</Text>
-            <Text style={styles.value}>Agent</Text>
+            <Text style={styles.value}>{user.usertype}</Text>
           </View>
           <View style={styles.column}>
             <Text style={styles.label}>Scheme</Text>
-            <Text style={styles.value}>scheme_1</Text>
+            <Text style={styles.value}>{user.scheme || '-'}</Text>
           </View>
         </View>
 
@@ -37,15 +46,15 @@ const UserDetailScreen = () => {
         <View style={styles.row}>
           <View style={styles.column}>
             <Text style={styles.label}>Partner</Text>
-            <Text style={styles.value}>-</Text>
+            <Text style={styles.value}>{user.partner || '-'}</Text>
           </View>
           <View style={styles.column}>
             <Text style={styles.label}>Stockist</Text>
-            <Text style={styles.value}>-</Text>
+            <Text style={styles.value}>{user.stockist || '-'}</Text>
           </View>
           <View style={styles.column}>
             <Text style={styles.label}>Sub Stockist</Text>
-            <Text style={styles.value}>Frs</Text>
+            <Text style={styles.value}>{user.subStockist || '-'}</Text>
           </View>
         </View>
 
@@ -59,11 +68,11 @@ const UserDetailScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Row 4 — Navigates to BlockNumberScreen */}
+        {/* Row 4 — Navigate to BlockNumberScreen */}
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={[styles.button, styles.blue]}
-onPress={() => navigation.navigate('BlockNumberScreen')}
+            onPress={() => navigation.navigate('BlockNumberScreen')}
           >
             <Text style={styles.buttonText}>Blocked No</Text>
           </TouchableOpacity>
@@ -76,7 +85,7 @@ onPress={() => navigation.navigate('BlockNumberScreen')}
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={[styles.button, styles.pink]}
-            onPress={() => navigation.navigate('EditUserScreen')}
+            onPress={() => navigation.navigate('EditUserScreen', { user })}
           >
             <Text style={styles.buttonText}>Edit User</Text>
           </TouchableOpacity>
@@ -155,6 +164,11 @@ const styles = StyleSheet.create({
   },
   pink: {
     backgroundColor: '#E91E63',
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

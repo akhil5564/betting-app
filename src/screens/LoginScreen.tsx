@@ -7,6 +7,7 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,45 +20,44 @@ const LoginScreen = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
-const handleLogin = async () => {
-  const uname = username.trim().toLowerCase();
-  const pwd = password.trim();
+  const handleLogin = async () => {
+    const uname = username.trim().toLowerCase();
+    const pwd = password.trim();
 
-  // ✅ Local login check for multiple users
-  const localUsers = {
-    aki: { password: '388', usertype: 'admin' },
-    john: { password: '1234', usertype: 'master' }, // 👈 new local user
-  };
+    const localUsers = {
+      aki: { password: '388', usertype: 'admin' },
+      john: { password: '1234', usertype: 'master' },
+    };
 
-  if (localUsers[uname] && localUsers[uname].password === pwd) {
-    await AsyncStorage.setItem('username', uname);
-    await AsyncStorage.setItem('usertype', localUsers[uname].usertype);
-    navigation.replace('Main');
-    return;
-  }
-
-  // ✅ Else: Try API login
-  try {
-    const response = await axios.post('https://manu-netflix.onrender.com/login', {
-      username: uname,
-      password: pwd,
-    });
-
-    if (response.status === 200) {
-      const user = response.data;
-
-      await AsyncStorage.setItem('username', user.username);
-      await AsyncStorage.setItem('usertype', user.usertype);
-
+    // ✅ Local login
+    if (localUsers[uname] && localUsers[uname].password === pwd) {
+      await AsyncStorage.setItem('username', uname);
+      await AsyncStorage.setItem('usertype', localUsers[uname].usertype);
       navigation.replace('Main');
-    } else {
-      alert('Login failed');
+      return;
     }
-  } catch (error: any) {
-    alert(error.response?.data?.message || 'Login error');
-  }
-};
 
+    try {
+      const response = await axios.post('https://manu-netflix.onrender.com/login', {
+        username: uname,
+        password: pwd,
+      });
+
+      if (response.status === 200 && response.data.user) {
+        const user = response.data.user;
+
+        await AsyncStorage.setItem('username', user.username);
+        await AsyncStorage.setItem('usertype', user.userType || '');
+        await AsyncStorage.setItem('scheme', user.scheme || '');
+
+        navigation.replace('Main');
+      } else {
+        Alert.alert('Login Failed', response.data.message || 'Invalid response');
+      }
+    } catch (error: any) {
+      Alert.alert('Login Error', error.response?.data?.message || 'Server error');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -84,10 +84,7 @@ const handleLogin = async () => {
           <Text style={styles.buttonText}>Login</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.closeButton}
-          onPress={() => navigation.goBack()}
-        >
+        <TouchableOpacity style={styles.closeButton} onPress={() => navigation.goBack()}>
           <Text style={styles.buttonText}>Close</Text>
         </TouchableOpacity>
       </View>

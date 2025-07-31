@@ -17,10 +17,39 @@ const PasteScreen: React.FC = () => {
   const [text, setText] = useState('');
   const navigation = useNavigation();
 
-  const handlePaste = async () => {
-    const clipboardText = await Clipboard.getStringAsync();
-    setText(clipboardText);
-  };
+  const handlePaste = () => {
+  const lines = text.split('\n');
+  const parsedEntries = [];
+
+  for (const line of lines) {
+    const cleaned = line.trim();
+    if (!cleaned) continue;
+
+    // Match formats: 142=1=1, 142=1-1, 142+1+1, 142 1 1
+    const match = cleaned.match(/(\d{3})\D+(\d+)\D+(\d+)/);
+    if (match) {
+      const [_, number, superCount, boxCount] = match;
+      parsedEntries.push({
+        number,
+        count: parseInt(superCount),
+        type: 'SUPER',
+      });
+      parsedEntries.push({
+        number,
+        count: parseInt(boxCount),
+        type: 'BOX',
+      });
+    }
+  }
+
+  if (parsedEntries.length === 0) {
+    Alert.alert('Paste Result', '❌ No valid entries found.');
+  } else {
+    setEntries((prev) => [...prev, ...parsedEntries]);
+    Alert.alert('Paste Result', `✅ Added ${parsedEntries.length} entries.`);
+  }
+};
+
 
   const handleSubmit = () => {
     if (!text.trim()) {

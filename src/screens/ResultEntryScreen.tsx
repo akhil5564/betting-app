@@ -34,10 +34,10 @@ const ResultEntryScreen: React.FC = () => {
   };
 
   const getShortCode = (t: string) => {
-    if (t === 'KERALA 3PM') return 'LSK';
-    if (t === 'DEAR 1PM') return 'D-1';
-    if (t === 'DEAR 6PM') return 'D-6';
-    if (t === 'DEAR 8PM') return 'D-8';
+    if (t === 'KERALA-3PM') return 'LSK';
+    if (t === 'DEAR-1PM') return 'D-1';
+    if (t === 'DEAR-6PM') return 'D-6';
+    if (t === 'DEAR-8PM') return 'D-8';
     return 'CODE';
   };
 

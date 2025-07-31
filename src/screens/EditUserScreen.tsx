@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,25 +10,52 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 const EditUserScreen = () => {
-  const [username] = useState('Fr');
-  const [password, setPassword] = useState('369');
-  const [percentage, setPercentage] = useState('100');
+  const navigation = useNavigation();
+  const route = useRoute();
+
+  const selectedUser = route.params?.user;
+
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [percentage, setPercentage] = useState('');
   const [scheme, setScheme] = useState('Scheme 1');
   const [allowSubStockist, setAllowSubStockist] = useState(false);
   const [allowAgents, setAllowAgents] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+
+  useEffect(() => {
+    if (selectedUser) {
+      setUsername(selectedUser.username || '');
+      setPassword(selectedUser.password || '');
+      setPercentage(selectedUser.percentage?.toString() || '0');
+      setScheme(selectedUser.scheme || 'Scheme 1');
+      setAllowSubStockist(selectedUser.allowSubStockist || false);
+      setAllowAgents(selectedUser.allowAgents || false);
+      setBlocked(selectedUser.blocked || false);
+    }
+  }, [selectedUser]);
+
+  useEffect(() => {
+    if (blocked) {
+      console.log(`🔒 User ${username} has been blocked.`);
+    } else {
+      console.log(`✅ User ${username} is unblocked.`);
+    }
+  }, [blocked]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.title}>Users</Text>
       </View>
 
-      <View style={styles.card}>
+      <View style={[styles.card, blocked && styles.blockedCard]}>
         <View style={styles.topBar}>
           <Text style={styles.topBarText}>Edit User</Text>
         </View>
@@ -40,15 +67,16 @@ const EditUserScreen = () => {
         <TextInput style={styles.input} value={password} onChangeText={setPassword} />
 
         <Text style={styles.label}>Percentage</Text>
-        <TextInput style={styles.input} value={percentage} onChangeText={setPercentage} />
+        <TextInput
+          style={styles.input}
+          value={percentage}
+          onChangeText={setPercentage}
+          keyboardType="numeric"
+        />
 
         <Text style={styles.label}>Scheme</Text>
         <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={scheme}
-            onValueChange={(itemValue) => setScheme(itemValue)}
-            style={styles.picker}
-          >
+          <Picker selectedValue={scheme} onValueChange={setScheme} style={styles.picker}>
             <Picker.Item label="Scheme 1" value="Scheme 1" />
             <Picker.Item label="Scheme 2" value="Scheme 2" />
             <Picker.Item label="Scheme 3" value="Scheme 3" />
@@ -65,11 +93,21 @@ const EditUserScreen = () => {
           <Text style={styles.checkboxLabel}>Allow create agents</Text>
         </View>
 
+        <View style={styles.checkboxRow}>
+          <Switch value={blocked} onValueChange={setBlocked} />
+          <Text style={styles.checkboxLabel}>Block this user</Text>
+        </View>
+
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={[styles.button, styles.saveButton]}>
-            <Text style={styles.buttonText}>Save</Text>
+          <TouchableOpacity
+            style={[styles.button, blocked ? styles.blockedButton : styles.saveButton]}
+          >
+            <Text style={styles.buttonText}>{blocked ? 'SalesBlock' : 'Save'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.cancelButton]}>
+          <TouchableOpacity
+            style={[styles.button, styles.cancelButton]}
+            onPress={() => navigation.goBack()}
+          >
             <Text style={styles.buttonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -102,6 +140,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     elevation: 3,
     paddingBottom: 20,
+  },
+  blockedCard: {
+    backgroundColor: '#ffe5e5', // light red tint when blocked
   },
   topBar: {
     backgroundColor: '#f36',
@@ -158,7 +199,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   saveButton: {
- backgroundColor: '#f36',
+    backgroundColor: '#f36',
+  },
+  blockedButton: {
+    backgroundColor: '#d00', // dark red for SalesBlock
   },
   cancelButton: {
     backgroundColor: '#888',

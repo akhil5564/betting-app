@@ -13,12 +13,35 @@ const ReportsScreen = () => {
   const navigation = useNavigation();
 
   const reports = [
-    {
-      title: 'View Result',
+
+      {
+      title: ' Result entry',
       icon: <Ionicons name="document-text-outline" size={24} color="white" />,
-      screen: 'SelectResultScreen',
+      screen: 'ResultEntry',
     },
 
+    
+      {
+      title: ' Ticket Limit',
+      icon: <Ionicons name="document-text-outline" size={24} color="white" />,
+      screen: 'TicketLimit',
+    },
+
+
+    
+     {
+  title: 'Time Setting',
+  icon: <Ionicons name="time-outline" size={24} color="white" />,
+  screen: 'timeset',
+},
+
+   
+    
+      {
+      title: ' Profit',
+      icon: <Ionicons name="document-text-outline" size={24} color="white" />,
+      screen: 'netdetailed',
+    },
   ];
 
   return (
@@ -30,7 +53,7 @@ const ReportsScreen = () => {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.navigate('SelectResultScreen')}>
-          <Text style={styles.title}>View Result</Text>
+          <Text style={styles.title}>FOR ADMIN</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.navigate('Main')}>
