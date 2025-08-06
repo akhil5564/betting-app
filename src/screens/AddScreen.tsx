@@ -775,7 +775,7 @@ onPress={focusNumberInput}  <Text style={styles.actionText}>ALL</Text>
         <Text style={styles.tableCell}>{entry.type}</Text>
         <Text style={styles.tableCell}>{entry.number}</Text>
         <Text style={styles.tableCell}>{entry.count}</Text>
-        <Text style={styles.tableCell}>{(entry.count * 8).toFixed(2)}</Text>
+        <Text style={styles.tableCell}>{(entry.count * 10).toFixed(2)}</Text>
         <Text style={styles.tableCell}>{(entry.count * 10).toFixed(2)}</Text>
         <TouchableOpacity
           onPress={() => handleDeleteEntry(index)}
