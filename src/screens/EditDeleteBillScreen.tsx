@@ -21,12 +21,89 @@ const EditDeleteBillScreen = () => {
   const [editingId, setEditingId] = useState(null);
   const [editingCount, setEditingCount] = useState('');
 
+  // Current timeLabel to fetch blockTime
+  const [timeLabel, setTimeLabel] = useState(null);
+
+  // Block time info from backend
+  const [blockTime, setBlockTime] = useState(null);
+
+  // Date of the entry (expected format: "YYYY-MM-DD")
+  const [entryDate, setEntryDate] = useState(null);
+
+  // Is editing/deleting blocked currently?
+  const [isBlocked, setIsBlocked] = useState(false);
+
+  // Fetch block time when timeLabel changes
+  useEffect(() => {
+    if (timeLabel) {
+      fetchBlockTime(timeLabel);
+    } else {
+      setBlockTime(null);
+      setIsBlocked(false);
+    }
+  }, [timeLabel]);
+
+  // Search bill entries when route param changes
   useEffect(() => {
     if (routeBillNo) {
       handleSearch(routeBillNo);
     }
   }, [routeBillNo]);
 
+  // Check block status whenever blockTime or entryDate changes
+  useEffect(() => {
+    if (blockTime && entryDate) {
+      checkIfBlocked();
+      const interval = setInterval(checkIfBlocked, 30000); // refresh every 30s
+      return () => clearInterval(interval);
+    } else {
+      setIsBlocked(false);
+    }
+  }, [blockTime, entryDate]);
+
+  // Fetch blockTime data from server for a timeLabel
+  const fetchBlockTime = async (timeLabelParam) => {
+    try {
+      const encodedLabel = encodeURIComponent(timeLabelParam);
+      const res = await fetch(`https://manu-netflix.onrender.com/getBlockTime/${encodedLabel}`);
+      if (!res.ok) throw new Error('Failed to fetch block time');
+      const data = await res.json();
+
+      console.log('Fetched blockTime:', data);
+
+      setBlockTime(data);
+    } catch (err) {
+      console.error('Error fetching block time:', err);
+      setBlockTime(null);
+      setIsBlocked(false);
+    }
+  };
+
+  // Updated block check: block if current datetime >= entry date + block time
+  const checkIfBlocked = () => {
+    if (!blockTime || !blockTime.blockTime || !entryDate) {
+      setIsBlocked(false);
+      return;
+    }
+
+    const now = new Date();
+
+    // Parse entryDate expected format: "YYYY-MM-DD"
+    const [year, month, day] = entryDate.split('-').map(Number);
+    const [blockH, blockM] = blockTime.blockTime.split(':').map(Number);
+
+    const blockDateTime = new Date(year, month - 1, day, blockH, blockM, 0, 0);
+
+    // Debug logs
+    console.log('Now:', now.toString());
+    console.log('Entry Date + Block Time:', blockDateTime.toString());
+    console.log('Blocked?', now >= blockDateTime);
+
+    // Block if current datetime is after or equal to block datetime
+    setIsBlocked(now >= blockDateTime);
+  };
+
+  // Fetch entries by billNo and update timeLabel and entryDate
   const handleSearch = async (searchBillNo = billNo) => {
     if (!searchBillNo) return;
     try {
@@ -34,6 +111,26 @@ const EditDeleteBillScreen = () => {
       const res = await fetch(`https://manu-netflix.onrender.com/entries?billNo=${searchBillNo}`);
       const data = await res.json();
       setEntries(data);
+
+      if (data.length > 0) {
+        if (data[0].timeLabel) setTimeLabel(data[0].timeLabel);
+
+        // Assume each entry has a 'createdAt' field - convert to "YYYY-MM-DD"
+        if (data[0].createdAt) {
+          const dt = new Date(data[0].createdAt);
+          const yyyy = dt.getFullYear();
+          const mm = String(dt.getMonth() + 1).padStart(2, '0');
+          const dd = String(dt.getDate()).padStart(2, '0');
+          setEntryDate(`${yyyy}-${mm}-${dd}`);
+        } else {
+          setEntryDate(null);
+        }
+      } else {
+        setTimeLabel(null);
+        setEntryDate(null);
+        setBlockTime(null);
+        setIsBlocked(false);
+      }
     } catch (err) {
       console.error('❌ Error fetching bill:', err);
       alert('Failed to fetch entries');
@@ -42,7 +139,12 @@ const EditDeleteBillScreen = () => {
     }
   };
 
+  // Delete all entries of bill, only if not blocked
   const handleDelete = () => {
+    if (isBlocked) {
+      alert('Editing and deleting entries is blocked at this time.');
+      return;
+    }
     Alert.alert('Confirm Delete', `Delete all entries in bill ${billNo}?`, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -58,6 +160,10 @@ const EditDeleteBillScreen = () => {
               alert('Deleted successfully');
               setEntries([]);
               setBillNo('');
+              setTimeLabel(null);
+              setEntryDate(null);
+              setBlockTime(null);
+              setIsBlocked(false);
             } else {
               alert(result.message || 'Failed to delete');
             }
@@ -70,7 +176,12 @@ const EditDeleteBillScreen = () => {
     ]);
   };
 
+  // Confirm delete for single entry, blocked check included
   const confirmDeleteEntry = (id) => {
+    if (isBlocked) {
+      alert('Editing and deleting entries is blocked at this time.');
+      return;
+    }
     Alert.alert('Confirm Delete', 'Delete this entry?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -81,6 +192,7 @@ const EditDeleteBillScreen = () => {
     ]);
   };
 
+  // Delete single entry by id
   const deleteEntryById = async (id) => {
     try {
       const res = await fetch(`https://manu-netflix.onrender.com/deleteEntryById/${id}`, {
@@ -109,7 +221,12 @@ const EditDeleteBillScreen = () => {
     }
   };
 
+  // Save edited count for entry, only if not blocked
   const saveEditedCount = async (id) => {
+    if (isBlocked) {
+      alert('Editing and deleting entries is blocked at this time.');
+      return;
+    }
     try {
       const res = await fetch(`https://manu-netflix.onrender.com/updateEntryCount/${id}`, {
         method: 'PUT',
@@ -136,6 +253,7 @@ const EditDeleteBillScreen = () => {
     }
   };
 
+  // Render entry row with editing disabled if blocked
   const renderEntry = ({ item }) => {
     const isEditing = editingId === item._id;
     const displayCount = isEditing ? editingCount : item.count;
@@ -152,6 +270,7 @@ const EditDeleteBillScreen = () => {
             value={editingCount}
             onChangeText={setEditingCount}
             keyboardType="numeric"
+            editable={!isBlocked}
           />
         ) : (
           <Text style={styles.cell}>{item.count}</Text>
@@ -160,26 +279,39 @@ const EditDeleteBillScreen = () => {
         <Text style={styles.cell}>{totalAmount}</Text>
 
         {isEditing ? (
-          <TouchableOpacity style={styles.iconBtn} onPress={() => saveEditedCount(item._id)}>
-            <Ionicons name="checkmark" size={22} color="green" />
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => saveEditedCount(item._id)}
+            disabled={isBlocked}
+          >
+            <Ionicons name="checkmark" size={22} color={isBlocked ? 'gray' : 'green'} />
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
             style={styles.iconBtn}
             onPress={() => {
+              if (isBlocked) {
+                alert('Editing and deleting entries is blocked at this time.');
+                return;
+              }
               setEditingId(item._id);
               setEditingCount(String(item.count));
             }}
           >
-            <MaterialCommunityIcons name="pencil" size={20} color="#333" />
+            <MaterialCommunityIcons
+              name="pencil"
+              size={20}
+              color={isBlocked ? 'gray' : '#333'}
+            />
           </TouchableOpacity>
         )}
 
         <TouchableOpacity
           style={styles.iconBtn}
           onPress={() => confirmDeleteEntry(item._id)}
+          disabled={isBlocked}
         >
-          <Ionicons name="trash" size={20} color="red" />
+          <Ionicons name="trash" size={20} color={isBlocked ? 'gray' : 'red'} />
         </TouchableOpacity>
       </View>
     );
@@ -200,16 +332,38 @@ const EditDeleteBillScreen = () => {
           onChangeText={setBillNo}
           placeholderTextColor="#999"
           keyboardType="numeric"
+          editable={!isBlocked}
         />
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.searchBtn} onPress={() => handleSearch()}>
+          <TouchableOpacity
+            style={[styles.searchBtn, isBlocked && { backgroundColor: '#aaa' }]}
+            onPress={() => handleSearch()}
+            disabled={isBlocked}
+          >
             <Text style={styles.btnText}>Search</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
+          <TouchableOpacity
+            style={[styles.deleteBtn, isBlocked && { backgroundColor: '#aaa' }]}
+            onPress={handleDelete}
+            disabled={isBlocked}
+          >
             <Text style={styles.btnText}>Delete</Text>
           </TouchableOpacity>
         </View>
       </View>
+
+      {isBlocked && (
+        <Text
+          style={{
+            textAlign: 'center',
+            marginTop: 8,
+            color: 'red',
+            fontWeight: 'bold',
+          }}
+        >
+          Editing and deleting entries is blocked at this time.
+        </Text>
+      )}
 
       {loading ? (
         <Text style={{ textAlign: 'center', marginTop: 20 }}>Loading...</Text>
@@ -253,7 +407,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     elevation: 4,
-    marginTop: 30,
     backgroundColor: '#fff',
   },
   headerText: {

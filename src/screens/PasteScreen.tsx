@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import {
-  View,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   Alert,
-  ScrollView,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
@@ -17,39 +16,39 @@ const PasteScreen: React.FC = () => {
   const [text, setText] = useState('');
   const navigation = useNavigation();
 
-  const handlePaste = () => {
-  const lines = text.split('\n');
-  const parsedEntries = [];
+  const handlePaste = async () => {
+    try {
+      const clipboardContent = await Clipboard.getStringAsync();
+      if (clipboardContent) {
+        // Clean content: remove names, phone numbers, and unrelated lines
+        const cleaned = clipboardContent
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter((line) => {
+            if (!line) return false;
+            if (/^[a-zA-Z\s]+$/.test(line)) return false; // only letters = name
+            if (/\b\d{10,}\b/.test(line)) return false; // 10+ digit = mobile
+            const lower = line.toLowerCase();
+            if (
+              lower.includes('submitted') ||
+              lower.includes('agent') ||
+              lower.includes('name') ||
+              lower.includes('mobile') ||
+              lower.includes('thanks')
+            ) return false;
+            return true;
+          })
+          .join('\n');
 
-  for (const line of lines) {
-    const cleaned = line.trim();
-    if (!cleaned) continue;
-
-    // Match formats: 142=1=1, 142=1-1, 142+1+1, 142 1 1
-    const match = cleaned.match(/(\d{3})\D+(\d+)\D+(\d+)/);
-    if (match) {
-      const [_, number, superCount, boxCount] = match;
-      parsedEntries.push({
-        number,
-        count: parseInt(superCount),
-        type: 'SUPER',
-      });
-      parsedEntries.push({
-        number,
-        count: parseInt(boxCount),
-        type: 'BOX',
-      });
+        setText(cleaned.trim());
+        Alert.alert('Paste', 'Only valid betting content pasted.');
+      } else {
+        Alert.alert('Paste', 'Clipboard is empty.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to access clipboard.');
     }
-  }
-
-  if (parsedEntries.length === 0) {
-    Alert.alert('Paste Result', '❌ No valid entries found.');
-  } else {
-    setEntries((prev) => [...prev, ...parsedEntries]);
-    Alert.alert('Paste Result', `✅ Added ${parsedEntries.length} entries.`);
-  }
-};
-
+  };
 
   const handleSubmit = () => {
     if (!text.trim()) {
@@ -57,18 +56,13 @@ const PasteScreen: React.FC = () => {
       return;
     }
 
-    navigation.navigate('Add', { pastedText: text }); // Send to AddScreen
+    navigation.navigate('Add', { pastedText: text });
     setText('');
   };
 
   const handleCancel = () => {
     setText('');
-  };
-
-  const handleScan = () => {
-    const matches = text.match(/\b\d{3}\b/g);
-    const result = matches || [];
-    Alert.alert('Scan Complete', `Found ${result.length} numbers:\n\n${result.join(', ')}`);
+    navigation.navigate('Add'); // Navigate to Add screen on cancel
   };
 
   const handleCameraScan = async () => {
@@ -89,7 +83,7 @@ const PasteScreen: React.FC = () => {
   const uploadToOcrSpace = async (imageUri: string) => {
     try {
       const formData = new FormData();
-      formData.append('apikey', 'helloworld'); // Replace with your own key
+      formData.append('apikey', 'helloworld'); // Replace with actual key
       formData.append('language', 'eng');
       formData.append('isOverlayRequired', 'false');
 
@@ -139,8 +133,6 @@ const PasteScreen: React.FC = () => {
         <Text style={styles.buttonText}>Scan</Text>
       </TouchableOpacity>
 
-  
-
       <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
         <Text style={styles.buttonText}>Submit</Text>
       </TouchableOpacity>
@@ -180,12 +172,6 @@ const styles = StyleSheet.create({
   },
   cameraButton: {
     backgroundColor: '#9C27B0',
-    padding: 15,
-    borderRadius: 5,
-    marginBottom: 10,
-  },
-  scanButton: {
-    backgroundColor: '#FF9800',
     padding: 15,
     borderRadius: 5,
     marginBottom: 10,

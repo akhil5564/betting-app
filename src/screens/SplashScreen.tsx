@@ -130,13 +130,14 @@ const SplashScreen = () => {
 
 const styles = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: '#fff' },
-  container: { flex: 1 },
+  container: { flex: 1, 
+    marginTop :30,
+  },
   header: {
     backgroundColor: '#003b6f',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 30,
     paddingHorizontal: 10,
     paddingVertical: 12,
   },

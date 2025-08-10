@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -22,10 +22,19 @@ const ResultEntryScreen: React.FC = () => {
   const [prizes, setPrizes] = useState<string[]>(['', '', '', '', '']);
   const [numbers, setNumbers] = useState<string[]>(Array(30).fill(''));
 
+  const prizeRefs = useRef([]);
+  const numberRefs = useRef([]);
+
   const handleNumberChange = (index: number, value: string) => {
     const updated = [...numbers];
     updated[index] = value;
     setNumbers(updated);
+  };
+
+  const handlePrizeChange = (index: number, value: string) => {
+    const updated = [...prizes];
+    updated[index] = value;
+    setPrizes(updated);
   };
 
   const handleDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -34,68 +43,67 @@ const ResultEntryScreen: React.FC = () => {
   };
 
   const getShortCode = (t: string) => {
-    if (t === 'KERALA-3PM') return 'LSK';
-    if (t === 'DEAR-1PM') return 'D-1';
-    if (t === 'DEAR-6PM') return 'D-6';
-    if (t === 'DEAR-8PM') return 'D-8';
+    if (t === 'KERALA 3PM') return 'LSK';
+    if (t === 'DEAR 1PM') return 'D-1';
+    if (t === 'DEAR 6PM') return 'D-6';
+    if (t === 'DEAR 8PM') return 'D-8';
     return 'CODE';
   };
 
-const handleSave = async () => {
-  const formattedDate = date.toISOString().split('T')[0];
-  const shortCode = getShortCode(time);
+  const handleSave = async () => {
+    const formattedDate = date.toISOString().split('T')[0];
+    const shortCode = getShortCode(time);
 
-  const prizeEntries = prizes.filter(p => /^\d{3}$/.test(p));
-  const resultEntries = numbers
-    .map((num, index) => ({
-      ticket: (index + 1).toString(),
-      result: num.trim(),
-    }))
-    .filter(entry => /^\d{3}$/.test(entry.result));
+    const prizeEntries = prizes.filter(p => /^\d{3}$/.test(p));
+    const resultEntries = numbers
+      .map((num, index) => ({
+        ticket: (index + 1).toString(),
+        result: num.trim(),
+      }))
+      .filter(entry => /^\d{3}$/.test(entry.result));
 
-  if (resultEntries.length === 0 && prizeEntries.length === 0) {
-    Alert.alert('Missing Data', 'Enter at least one result or prize.');
-    return;
-  }
-
-  const payload = {
-    results: {
-      [formattedDate]: [
-        {
-          [time]: {
-            prizes: prizeEntries,
-            entries: resultEntries,
-          },
-        },
-      ],
-    },
-  };
-
-  console.log('Sending payload:', JSON.stringify(payload, null, 2));
-
-  try {
-    const response = await fetch('https://manu-netflix.onrender.com/addResult', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const resData = await response.json();
-
-    if (response.ok) {
-      Alert.alert('Success', 'Result saved successfully.');
-    } else {
-      console.error('Server error:', resData);
-      Alert.alert('Error', resData.message || 'Failed to save.');
+    if (resultEntries.length === 0 && prizeEntries.length === 0) {
+      Alert.alert('Missing Data', 'Enter at least one result or prize.');
+      return;
     }
-  } catch (err) {
-    console.error('Request error:', err);
-    Alert.alert('Error', 'Network or server error.');
-  }
-};
 
+    const payload = {
+      results: {
+        [formattedDate]: [
+          {
+            [time]: {
+              prizes: prizeEntries,
+              entries: resultEntries,
+            },
+          },
+        ],
+      },
+    };
+
+    console.log('Sending payload:', JSON.stringify(payload, null, 2));
+
+    try {
+      const response = await fetch('https://manu-netflix.onrender.com/addResult', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const resData = await response.json();
+
+      if (response.ok) {
+        Alert.alert('Success', 'Result saved successfully.');
+      } else {
+        console.error('Server error:', resData);
+        Alert.alert('Error', resData.message || 'Failed to save.');
+      }
+    } catch (err) {
+      console.error('Request error:', err);
+      Alert.alert('Error', 'Network or server error.');
+    }
+  };
 
   const openCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -141,20 +149,34 @@ const handleSave = async () => {
         return;
       }
 
-      const headerMatch = lines[0].match(/^(DEAR \d+PM|KERALA \d+PM) *: *(.*)$/i);
-      if (!headerMatch) {
-        Alert.alert('Error', 'Invalid header format.');
-        return;
+      let parsedTime = 'DEAR 6PM';
+      let parsedDate = new Date();
+      let startIndex = 0;
+
+      const matchFormat1 = lines[0].match(/^(DEAR\d)\s+(\d{4}-\d{2}-\d{2})$/i);
+      if (matchFormat1) {
+        const game = matchFormat1[1].toUpperCase();
+        const dateStr = matchFormat1[2];
+        parsedTime = game === 'DEAR1' ? 'DEAR 1PM' : game === 'DEAR6' ? 'DEAR 6PM' : game === 'DEAR8' ? 'DEAR 8PM' : game;
+        parsedDate = new Date(dateStr);
+        startIndex = 1;
       }
 
-      const parsedTime = headerMatch[1];
-      const parsedDate = new Date(); // fallback
+      const matchFormat2 = lines[0].match(/^Results\s+(\d{1,2}:\d{2}\s*(?:AM|PM))$/i);
+      if (matchFormat2) {
+        const timeStr = matchFormat2[1].trim();
+        if (timeStr === '1:00 PM') parsedTime = 'DEAR 1PM';
+        else if (timeStr === '6:00 PM') parsedTime = 'DEAR 6PM';
+        else if (timeStr === '8:00 PM') parsedTime = 'DEAR 8PM';
+        startIndex = 1;
+      }
 
-      const parsedPrizes = lines.slice(1, 6)
-        .map(line => line.trim().slice(0, 3))
+      const parsedPrizes = lines
+        .slice(startIndex, startIndex + 5)
+        .map(line => line.slice(0, 3))
         .filter(n => /^\d{3}$/.test(n));
 
-      const numberLines = lines.slice(6);
+      const numberLines = lines.slice(startIndex + 5);
       const parsedNumbers = numberLines
         .flatMap(line => line.split(/\s+/))
         .map(n => n.trim())
@@ -225,12 +247,19 @@ const handleSave = async () => {
         >
           <Text style={styles.prizeLabel}>{idx + 1} :</Text>
           <TextInput
+            ref={(ref) => (prizeRefs.current[idx] = ref)}
             style={styles.prizeInput}
             value={val}
             onChangeText={(text) => {
-              const updated = [...prizes];
-              updated[idx] = text;
-              setPrizes(updated);
+              handlePrizeChange(idx, text);
+              if (text.length === 3 && idx < prizes.length - 1) {
+                prizeRefs.current[idx + 1]?.focus();
+              }
+            }}
+            onKeyPress={({ nativeEvent }) => {
+              if (nativeEvent.key === 'Backspace' && val.length === 0 && idx > 0) {
+                prizeRefs.current[idx - 1]?.focus();
+              }
             }}
             keyboardType="number-pad"
             maxLength={3}
@@ -242,11 +271,23 @@ const handleSave = async () => {
         {numbers.map((num, idx) => (
           <TextInput
             key={idx}
+            ref={(ref) => (numberRefs.current[idx] = ref)}
             style={[styles.gridItem, { backgroundColor: idx % 2 === 0 ? '#C2F0E1' : '#B6D8F2' }]}
             value={num}
-            onChangeText={(text) => handleNumberChange(idx, text)}
+            onChangeText={(text) => {
+              handleNumberChange(idx, text);
+              if (text.length === 3 && idx < numbers.length - 1) {
+                numberRefs.current[idx + 1]?.focus();
+              }
+            }}
+            onKeyPress={({ nativeEvent }) => {
+              if (nativeEvent.key === 'Backspace' && num.length === 0 && idx > 0) {
+                numberRefs.current[idx - 1]?.focus();
+              }
+            }}
             keyboardType="number-pad"
             maxLength={3}
+            returnKeyType="next"
           />
         ))}
       </View>
@@ -263,7 +304,6 @@ const handleSave = async () => {
 };
 
 export default ResultEntryScreen;
-
 
 const styles = StyleSheet.create({
   container: {

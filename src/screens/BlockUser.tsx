@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   View,
   Text,
@@ -7,11 +6,42 @@ import {
   ScrollView,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import axios from 'axios';
+import React, { useState } from 'react';
+
+// API call to toggle login block
+const blockLoginById = async (userId) => {
+  try {
+    const response = await axios.patch(
+      `https://manu-netflix.onrender.com/user/blockLogin/${userId}`
+    );
+    console.log('✅ User login block toggled:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error blocking login:', error);
+    throw error;
+  }
+};
+
+// API call to toggle sales block
+const blockSalesById = async (userId) => {
+  try {
+    const response = await axios.patch(
+      `https://manu-netflix.onrender.com/blockSales/${userId}`
+    );
+    console.log('✅ User sales block toggled:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error blocking sales:', error);
+    throw error;
+  }
+};
 
 const UserDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { user } = route.params || {};
+  const { user: initialUser } = route.params || {};
+  const [user, setUser] = useState(initialUser);
 
   if (!user) {
     return (
@@ -20,6 +50,36 @@ const UserDetailScreen = () => {
       </View>
     );
   }
+
+  const handleToggleLoginBlock = async () => {
+    try {
+      console.log("🔍 Toggling login block for User ID:", user._id);
+      const res = await blockLoginById(user._id);
+      setUser(res.user); // Update state with backend response
+      alert(
+        res.user.blocked
+          ? '✅ User login is now BLOCKED'
+          : '✅ User login is now UNBLOCKED'
+      );
+    } catch (err) {
+      alert('❌ Failed to update login block status.');
+    }
+  };
+
+  const handleToggleSalesBlock = async () => {
+    try {
+      console.log("🔍 Toggling sales block for User ID:", user._id);
+      const res = await blockSalesById(user._id);
+      setUser(res.user); // Update state with backend response
+      alert(
+        res.user.salesBlocked
+          ? '✅ User sales is now BLOCKED'
+          : '✅ User sales is now UNBLOCKED'
+      );
+    } catch (err) {
+      alert('❌ Failed to update sales block status.');
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -58,13 +118,32 @@ const UserDetailScreen = () => {
           </View>
         </View>
 
-        {/* Row 3 */}
+        {/* Row 3 — Login + Sales Block */}
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={[styles.button, styles.gray]}>
-            <Text style={styles.buttonText}>Login Block</Text>
+          {/* Login Block Button */}
+          <TouchableOpacity
+            style={[
+              styles.button,
+              user.blocked ? styles.red : styles.green
+            ]}
+            onPress={handleToggleLoginBlock}
+          >
+            <Text style={styles.buttonText}>
+              {user.blocked ? 'Unblock Login' : 'Block Login'}
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.gray]}>
-            <Text style={styles.buttonText}>Sales Block</Text>
+
+          {/* Sales Block Button */}
+          <TouchableOpacity
+            style={[
+              styles.button,
+              user.salesBlocked ? styles.red : styles.green
+            ]}
+            onPress={handleToggleSalesBlock}
+          >
+            <Text style={styles.buttonText}>
+              {user.salesBlocked ? 'Unblock Sales' : 'Block Sales'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -153,14 +232,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-  gray: {
-    backgroundColor: '#888',
+  green: {
+    backgroundColor: '#4CAF50', // ✅ Unblocked = Green
   },
   blue: {
     backgroundColor: '#2196F3',
   },
   red: {
-    backgroundColor: '#F44336',
+    backgroundColor: '#F44336', // ✅ Blocked = Red
   },
   pink: {
     backgroundColor: '#E91E63',

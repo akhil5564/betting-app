@@ -18,6 +18,7 @@ const ManageSalesScreen = () => {
         </TouchableOpacity>
       </View>
 
+      
       <View style={styles.body}>
         <TouchableOpacity
           style={styles.card}

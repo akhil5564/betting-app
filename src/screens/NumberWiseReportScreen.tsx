@@ -1,4 +1,3 @@
-// NumberWiseReportScreen.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -14,9 +13,11 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const NumberWiseReportScreen = () => {
   const navigation = useNavigation<any>();
+
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [ticketNumber, setTicketNumber] = useState('');
@@ -24,23 +25,36 @@ const NumberWiseReportScreen = () => {
   const [selectedTime, setSelectedTime] = useState('ALL');
   const [selectedAgent, setSelectedAgent] = useState('');
   const [allUsers, setAllUsers] = useState<string[]>([]);
+  const [loggedInUser, setLoggedInUser] = useState(''); // ✅ Add this
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const loadUserAndUsers = async () => {
       try {
-        const response = await fetch('https://manu-netflix.onrender.com/users');
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          const usernames = data
-            .map((u: any) => u.username)
-            .filter((username: any) => typeof username === 'string' && username.trim() !== '');
-          setAllUsers(usernames);
+        const storedUser = await AsyncStorage.getItem('username');
+        if (storedUser) {
+          setLoggedInUser(storedUser);
+
+          const response = await fetch('https://manu-netflix.onrender.com/users');
+          const data = await response.json();
+
+          if (response.ok && Array.isArray(data)) {
+            const filteredUsers = data
+              .filter((u: any) => u.createdBy === storedUser)
+              .map((u: any) => u.username)
+              .filter((username: any) => typeof username === 'string' && username.trim() !== '');
+
+            // Optionally include the logged-in user in the agent list
+            setAllUsers([storedUser, ...filteredUsers]);
+          } else {
+            console.error('Invalid data format from API');
+          }
         }
       } catch (err) {
-        console.error('Error fetching users:', err);
+        console.error('❌ Error loading users:', err);
       }
     };
-    fetchUsers();
+
+    loadUserAndUsers();
   }, []);
 
   const handleGenerateReport = async () => {

@@ -6,10 +6,13 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
+  Share,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import axios from 'axios';
 import { Picker } from '@react-native-picker/picker';
+import * as Clipboard from 'expo-clipboard';
+import { Ionicons } from '@expo/vector-icons';
 
 const timeOptions = ['DEAR 1PM', 'KERALA 3PM', 'DEAR 6PM', 'DEAR 8PM'];
 
@@ -21,24 +24,46 @@ const ResultScreen = () => {
   const [entries, setEntries] = useState<string[]>([]);
 
   const formatDate = (date: Date) => {
-    return date.toISOString().split('T')[0]; // "2025-07-15"
+    return date.toISOString().split('T')[0];
   };
 
   const handleGenerate = async () => {
     try {
       const formattedDate = formatDate(selectedDate);
       const url = `https://manu-netflix.onrender.com/getResult?date=${formattedDate}&time=${encodeURIComponent(selectedTime)}`;
-
       const res = await axios.get(url);
       const data = res.data.results[formattedDate][0][selectedTime];
-
       setPrizes(data.prizes);
-      setEntries(data.entries.map((e: any) => e.result));
+      setEntries(data.entries.map((e: any) => e.result).slice(0, 30)); // Limit to 30 entries
     } catch (err) {
       console.error(err);
       setPrizes([]);
       setEntries([]);
       alert('No result found or network error');
+    }
+  };
+
+  const buildResultText = () => {
+    return [
+      `🎯 ${selectedTime} Result (${selectedDate.toLocaleDateString('en-GB')})`,
+      '',
+      ...prizes.map((p, i) => `${i + 1}: ${p}`),
+      '',
+      'Entries:',
+      ...entries,
+    ].join('\n');
+  };
+
+  const handleCopy = async () => {
+    await Clipboard.setStringAsync(buildResultText());
+    alert('Result copied to clipboard!');
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share({ message: buildResultText() });
+    } catch (error) {
+      alert('Failed to share result');
     }
   };
 
@@ -82,11 +107,23 @@ const ResultScreen = () => {
         />
       )}
 
-      <TouchableOpacity style={styles.generateButton} onPress={handleGenerate}>
-        <Text style={styles.generateText}>Generate Result</Text>
-      </TouchableOpacity>
+      <View style={styles.buttonRow}>
+        <TouchableOpacity style={styles.actionButton} onPress={handleGenerate}>
+          <Ionicons name="refresh" size={18} color="#fff" />
+          <Text style={styles.buttonText}>Generate</Text>
+        </TouchableOpacity>
 
-      {/* Prize Results */}
+        <TouchableOpacity style={styles.actionButton} onPress={handleCopy}>
+          <Ionicons name="copy-outline" size={18} color="#fff" />
+          <Text style={styles.buttonText}>Copy</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+          <Ionicons name="share-social-outline" size={18} color="#fff" />
+          <Text style={styles.buttonText}>Share</Text>
+        </TouchableOpacity>
+      </View>
+
       {prizes.length > 0 && (
         <View style={styles.prizeContainer}>
           {prizes.map((prize, index) => (
@@ -103,7 +140,6 @@ const ResultScreen = () => {
         </View>
       )}
 
-      {/* Entries Grid */}
       <View style={styles.grid}>
         {entries.map((entry, i) => (
           <View
@@ -127,7 +163,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f7fb',
     alignItems: 'center',
     flexGrow: 1,
-    marginTop :30,
+    marginTop: 30,
   },
   title: {
     fontSize: 22,
@@ -166,18 +202,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  generateButton: {
-    backgroundColor: 'blue',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginVertical: 16,
-    elevation: 3,
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    width: '100%',
+    marginBottom: 16,
+    marginTop: 8,
   },
-  generateText: {
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007bff',
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  buttonText: {
     color: '#fff',
-    fontSize: 17,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   prizeContainer: {
     width: '100%',
@@ -194,22 +240,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
   },
-grid: {
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  justifyContent: 'flex-start',
-  width: '100%',
-  overflow: 'hidden',
-},
-
-cell: {
-  width: '33.33%', // Exactly 3 columns
-  paddingVertical: 12,
-  alignItems: 'center',
-
-  backgroundColor: '#a5e9d2',
-},
-
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    width: '100%',
+    marginTop: 10,
+  },
+  cell: {
+    width: '33.33%',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
   cellText: {
     fontSize: 16,
     fontWeight: '500',
