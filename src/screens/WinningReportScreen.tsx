@@ -1,329 +1,416 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
+  ScrollView,
   StyleSheet,
-  Alert,
-} from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+  ActivityIndicator,
+  TouchableOpacity,
+  Platform,
+} from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import axios from "axios";
+import { Picker } from "@react-native-picker/picker";
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList, Report } from "./types";
 
-export default function SalesReportScreen() {
-  const navigation = useNavigation();
+type Props = NativeStackScreenProps<RootStackParamList, "WinningReport">;
+
+const payouts = {
+  SUPER: { 1: 5000, 2: 500, 3: 250, 4: 100, 5: 50, other: 20 },
+  BOX: {
+    normal: { perfect: 3000, permutation: 800 },
+    double: { perfect: 3800, permutation: 1600 },
+  },
+  AB_BC_AC: 700,
+  A_B_C: 100,
+};
+
+function isDoubleNumber(numStr: string) {
+  return new Set(numStr.split("")).size === 2;
+}
+
+function processReport(sales: any[], results: Record<string, any>): Report {
+  if (!results || typeof results !== "object") {
+    console.warn("processReport: invalid results object", results);
+    return { grandTotal: 0, bills: [] };
+  }
+  if (!results["1"]) {
+    console.warn("processReport: missing key '1' in results", results);
+    return { grandTotal: 0, bills: [] };
+  }
+
+  const firstPrize = results["1"];
+  const others = Array.isArray(results.others) ? results.others : [];
+  const allPrizes = [
+    results["1"],
+    results["2"],
+    results["3"],
+    results["4"],
+    results["5"],
+    ...others,
+  ].filter(Boolean);
+
+  const report: Record<string, any> = {};
+
+  for (const sale of sales) {
+    if (
+      !sale.number ||
+      !sale.count ||
+      !sale.type ||
+      !sale.billNo ||
+      !sale.createdBy
+    ) {
+      console.warn("Skipping invalid sale entry:", sale);
+      continue;
+    }
+
+    const rawType = (sale.type || "").toUpperCase();
+    const baseType = rawType.includes("-")
+      ? rawType.split("-").pop()!
+      : rawType;
+
+    const num = sale.number;
+    const count = sale.count;
+    let winAmount = 0;
+    let winType = "";
+
+    if (baseType === "SUPER") {
+      let prizePos = allPrizes.indexOf(num) + 1;
+      if (prizePos > 0) {
+        winAmount = (payouts.SUPER[prizePos] || payouts.SUPER.other) * count;
+        winType = `SUPER ${
+          prizePos <= 5 ? prizePos + " prize" : "other prize"
+        }`;
+      }
+    }
+
+    if (baseType === "BOX") {
+      if (num === firstPrize) {
+        if (isDoubleNumber(firstPrize)) {
+          winAmount = payouts.BOX.double.perfect * count;
+          winType = "BOX perfect double";
+        } else {
+          winAmount = payouts.BOX.normal.perfect * count;
+          winType = "BOX perfect normal";
+        }
+      } else if (
+        num.split("").sort().join("") === firstPrize.split("").sort().join("")
+      ) {
+        if (isDoubleNumber(firstPrize)) {
+          winAmount = payouts.BOX.double.permutation * count;
+          winType = "BOX permutation double";
+        } else {
+          winAmount = payouts.BOX.normal.permutation * count;
+          winType = "BOX permutation normal";
+        }
+      }
+    }
+
+    if (baseType === "AB" && num === firstPrize.slice(0, 2)) {
+      winAmount = payouts.AB_BC_AC * count;
+      winType = "AB match";
+    }
+    if (baseType === "BC" && num === firstPrize.slice(1, 3)) {
+      winAmount = payouts.AB_BC_AC * count;
+      winType = "BC match";
+    }
+    if (baseType === "AC" && num === firstPrize[0] + firstPrize[2]) {
+      winAmount = payouts.AB_BC_AC * count;
+      winType = "AC match";
+    }
+
+    if (baseType === "A" && num === firstPrize[0]) {
+      winAmount = payouts.A_B_C * count;
+      winType = "A match";
+    }
+    if (baseType === "B" && num === firstPrize[1]) {
+      winAmount = payouts.A_B_C * count;
+      winType = "B match";
+    }
+    if (baseType === "C" && num === firstPrize[2]) {
+      winAmount = payouts.A_B_C * count;
+      winType = "C match";
+    }
+
+    if (winAmount > 0) {
+      if (!report[sale.billNo]) {
+        report[sale.billNo] = {
+          createdBy: sale.createdBy,
+          billNo: sale.billNo,
+          winnings: [],
+          total: 0,
+        };
+      }
+      report[sale.billNo].winnings.push({
+        number: num,
+        type: baseType,
+        count,
+        winType,
+        winAmount,
+      });
+      report[sale.billNo].total += winAmount;
+    }
+  }
+
+  const finalReport = Object.values(report);
+  const grandTotal = finalReport.reduce((sum, b) => sum + b.total, 0);
+
+  return { grandTotal, bills: finalReport };
+}
+
+function getDatesBetween(start: Date, end: Date) {
+  const dates = [];
+  const curr = new Date(start);
+  while (curr <= end) {
+    dates.push(new Date(curr));
+    curr.setDate(curr.getDate() + 1);
+  }
+  return dates;
+}
+
+function formatDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function mergeReports(r1: Report, r2: Report): Report {
+  const map = new Map<string, typeof r1.bills[0]>();
+  for (const bill of r1.bills) {
+    map.set(bill.billNo.toString(), { ...bill });
+  }
+  for (const bill of r2.bills) {
+    const key = bill.billNo.toString();
+    if (map.has(key)) {
+      const existing = map.get(key)!;
+      existing.winnings.push(...bill.winnings);
+      existing.total += bill.total;
+    } else {
+      map.set(key, { ...bill });
+    }
+  }
+  const bills = Array.from(map.values());
+  const grandTotal = bills.reduce((sum, b) => sum + b.total, 0);
+  return { grandTotal, bills };
+}
+
+export default function WinningReportScreen({ navigation }: Props) {
+  const [loading, setLoading] = useState(false);
+  const [report, setReport] = useState<Report | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const [fromDate, setFromDate] = useState(new Date());
   const [toDate, setToDate] = useState(new Date());
-  const [showFrom, setShowFrom] = useState(false);
-  const [showTo, setShowTo] = useState(false);
-  const [selectedTime, setSelectedTime] = useState('DEAR 6PM');
-  const [allUsers, setAllUsers] = useState<string[]>([]);
-  const [selectedAgent, setSelectedAgent] = useState('');
-  const [loggedInUser, setLoggedInUser] = useState('');
-  const [ticketNumber, setTicketNumber] = useState('');
-  const [selectedGroup, setSelectedGroup] = useState('');
-  const [selectedMode, setSelectedMode] = useState('');
+  const [showPicker, setShowPicker] = useState<null | "from" | "to">(null);
 
-  const formatDate = (date: Date) => {
-    return date.toISOString().split('T')[0];
-  };
+  const [selectedDraw, setSelectedDraw] = useState("DEAR 8 PM");
 
-  useEffect(() => {
-    const loadUserAndUsers = async () => {
-      try {
-        const storedUser = await AsyncStorage.getItem('username');
-        if (storedUser) {
-          setLoggedInUser(storedUser);
+  async function fetchData() {
+    if (toDate < fromDate) {
+      setErrorMsg("To date must be after or equal to From date");
+      return;
+    }
 
-          const response = await fetch('https://manu-netflix.onrender.com/users');
-          const data = await response.json();
-
-          if (response.ok && Array.isArray(data)) {
-            const filteredUsers = data
-              .filter((u: any) => u.createdBy === storedUser)
-              .map((u: any) => u.username)
-              .filter((username: any) => typeof username === 'string' && username.trim() !== '');
-
-            // Optionally include logged-in user
-            setAllUsers([storedUser, ...filteredUsers]);
-          } else {
-            console.error('Invalid data format from API');
-          }
-        }
-      } catch (err) {
-        console.error('❌ Error loading users:', err);
-      }
-    };
-
-    loadUserAndUsers();
-  }, []);
-
-  const handleGenerate = async () => {
     try {
-      const entriesRes = await fetch('https://manu-netflix.onrender.com/entries');
-      const entriesData = await entriesRes.json();
-      const entries = entriesData || [];
+      setLoading(true);
+      setErrorMsg(null);
+      setReport(null);
 
-      const matchedEntries: any[] = [];
-      const schemeRates = {
-        A: { amount: 100, super: 0 },
-        B: { amount: 100, super: 0 },
-        C: { amount: 100, super: 0 },
-        AB: { amount: 700, super: 30 },
-        AC: { amount: 700, super: 30 },
-        BC: { amount: 700, super: 30 },
-        BOX: { amount: 800, super: 0 },
-        SUPER: { amount: 5000, super: 400 },
-      };
+      const entriesRes = await axios.get(
+        "https://manu-netflix.onrender.com/entries",
+        {
+          params: {
+            fromDate: formatDate(fromDate),
+            toDate: formatDate(toDate),
+            timeLabel: selectedDraw,
+          },
+        }
+      );
 
-      const drawTimes =
-        selectedTime === 'ALL'
-          ? ['DEAR 1PM', 'LSK 3PM', 'DEAR 6PM', 'DEAR 8PM']
-          : [selectedTime];
+      const allDates = getDatesBetween(fromDate, toDate);
+      let combinedReport: Report = { grandTotal: 0, bills: [] };
+      let anyResultsFound = false;
 
-      let dateCursor = new Date(fromDate);
-      while (dateCursor <= toDate) {
-        const formattedDate = formatDate(dateCursor);
+      for (const date of allDates) {
+        const formattedDate = formatDate(date);
 
-        for (const drawTime of drawTimes) {
-          const resultUrl = `https://manu-netflix.onrender.com/getResult?date=${formattedDate}&time=${encodeURIComponent(drawTime)}`;
-          const resultRes = await fetch(resultUrl);
-          const resultData = await resultRes.json();
-
-          const prizes = resultData?.results?.[formattedDate]
-            ?.find(r => Object.keys(r)[0] === drawTime)?.[drawTime]?.prizes || [];
-
-          for (const prize of prizes) {
-            const digits = prize.split('');
-
-            const results = entries
-              .filter(entry => {
-                const entryDate = formatDate(new Date(entry.createdAt));
-                if (entryDate !== formattedDate) return false;
-
-                if (selectedAgent && entry.username !== selectedAgent) return false;
-                if (selectedGroup && entry.group !== selectedGroup) return false;
-                if (selectedMode && entry.mode !== selectedMode) return false;
-                if (ticketNumber && entry.ticket !== ticketNumber) return false;
-
-                return true;
-              })
-              .map(entry => {
-                const { number, type, count = 0, username } = entry;
-                if (!type || typeof type !== 'string') return null;
-
-                const baseType = type.replace(/^.*?(-|)(A|B|C|AB|AC|BC|BOX|SUPER)$/, '$2');
-
-                let isMatch = false;
-                switch (baseType) {
-                  case 'A': isMatch = number === digits[0]; break;
-                  case 'B': isMatch = number === digits[1]; break;
-                  case 'C': isMatch = number === digits[2]; break;
-                  case 'AB': isMatch = number === digits[0] + digits[1]; break;
-                  case 'AC': isMatch = number === digits[0] + digits[2]; break;
-                  case 'BC': isMatch = number === digits[1] + digits[2]; break;
-                  case 'BOX':
-                  case 'SUPER': isMatch = number === prize; break;
-                }
-
-                if (isMatch) {
-                  const { amount, super: superAmt } = schemeRates[baseType] || { amount: 0, super: 0 };
-                  const total = (amount + superAmt) * count;
-                  return {
-                    number,
-                    type,
-                    count,
-                    username,
-                    amount,
-                    super: superAmt,
-                    total,
-                    date: formattedDate,
-                    drawTime,
-                  };
-                }
-
-                return null;
-              })
-              .filter(Boolean);
-
-            matchedEntries.push(...results);
+        let resultsRes;
+        try {
+          resultsRes = await axios.get(
+            "https://manu-netflix.onrender.com/getResult",
+            { params: { date: formattedDate, time: selectedDraw } }
+          );
+        } catch (err: any) {
+          if (err.response && err.response.status === 404) {
+            console.log(`No result found for ${formattedDate}, skipping.`);
+            continue;
+          } else {
+            throw err;
           }
         }
 
-        dateCursor.setDate(dateCursor.getDate() + 1);
+        const resultData = Array.isArray(resultsRes.data)
+          ? resultsRes.data[0]
+          : resultsRes.data;
+
+        const salesForDate = entriesRes.data.filter((e: any) => {
+          const created = new Date(e.createdAt);
+          return (
+            created >= new Date(formattedDate + "T00:00:00") &&
+            created <= new Date(formattedDate + "T23:59:59")
+          );
+        });
+
+        const dayReport = processReport(salesForDate, resultData);
+
+        if (dayReport.bills.length > 0) anyResultsFound = true;
+
+        combinedReport = mergeReports(combinedReport, dayReport);
       }
 
-      navigation.navigate('winningdetailed', {
-        fromDate: formatDate(fromDate),
-        toDate: formatDate(toDate),
-        time: selectedTime,
-        matchedEntries,
-      });
-    } catch (error) {
-      console.error('❌ Error generating report:', error);
-      Alert.alert('Error fetching data');
+      if (!anyResultsFound) {
+        setErrorMsg("No results found for the selected date range.");
+        setReport(null);
+      } else {
+        setReport(combinedReport);
+      }
+    } catch (err: any) {
+      console.error("Error fetching report:", err.message);
+      setErrorMsg("Failed to fetch report: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const onDateChange = (event: any, selected?: Date) => {
+    setShowPicker(null);
+    if (selected) {
+      if (showPicker === "from") setFromDate(selected);
+      else if (showPicker === "to") setToDate(selected);
     }
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
+      <Text style={styles.header}>Winning Report</Text>
+
+      <View style={styles.dateRow}>
+        <TouchableOpacity
+          style={styles.dateBtn}
+          onPress={() => setShowPicker("from")}
+        >
+          <Text>From: {formatDate(fromDate)}</Text>
         </TouchableOpacity>
-        <Text style={styles.headerText}>Winning Report</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Main')}>
-          <Ionicons name="home" size={24} color="#c62828" />
+
+        <TouchableOpacity
+          style={styles.dateBtn}
+          onPress={() => setShowPicker("to")}
+        >
+          <Text>To: {formatDate(toDate)}</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Ticket Number</Text>
-        <TextInput
-          placeholder="Enter Ticket Number"
-          value={ticketNumber}
-          onChangeText={setTicketNumber}
-          style={styles.input}
+      {showPicker && (
+        <DateTimePicker
+          value={showPicker === "from" ? fromDate : toDate}
+          mode="date"
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          onChange={onDateChange}
+          maximumDate={new Date()}
         />
+      )}
 
-        <View style={styles.row}>
-          <View style={styles.column}>
-            <Text style={styles.sectionTitle}>Group</Text>
-            <Picker selectedValue={selectedGroup} onValueChange={setSelectedGroup} style={styles.picker}>
-              <Picker.Item label="Select Group" value="" />
-              <Picker.Item label="Group 1" value="1" />
-              <Picker.Item label="Group 2" value="2" />
-              <Picker.Item label="Group 3" value="3" />
-            </Picker>
-          </View>
-          <View style={styles.column}>
-            <Text style={styles.sectionTitle}>Mode</Text>
-            <Picker selectedValue={selectedMode} onValueChange={setSelectedMode} style={styles.picker}>
-              <Picker.Item label="Select Mode" value="" />
-              <Picker.Item label="Manual" value="manual" />
-              <Picker.Item label="Auto" value="auto" />
-            </Picker>
-          </View>
+      <Picker selectedValue={selectedDraw} onValueChange={setSelectedDraw}>
+        <Picker.Item label="DEAR 1 PM" value="DEAR 1 PM" />
+        <Picker.Item label="DEAR 3 PM" value="DEAR 3 PM" />
+        <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" />
+        <Picker.Item label="DEAR 8 PM" value="DEAR 8 PM" />
+      </Picker>
+
+      <TouchableOpacity style={styles.fetchBtn} onPress={fetchData}>
+        <Text style={{ color: "#fff" }}>Fetch Report</Text>
+      </TouchableOpacity>
+
+      {errorMsg && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{errorMsg}</Text>
         </View>
+      )}
 
-        <Text style={styles.sectionTitle}>Draw Time</Text>
-        <Picker selectedValue={selectedTime} onValueChange={setSelectedTime} style={styles.picker}>
-          <Picker.Item label="ALL" value="ALL" />
-          <Picker.Item label="DEAR 1 PM" value="DEAR 1PM" />
-          <Picker.Item label="LSK 3 PM" value="LSK 3PM" />
-          <Picker.Item label="DEAR 6 PM" value="DEAR 6PM" />
-          <Picker.Item label="DEAR 8 PM" value="DEAR 8PM" />
-        </Picker>
-
-        <View style={styles.row}>
-          <View style={styles.column}>
-            <Text style={styles.sectionTitle}>From Date</Text>
-            <TouchableOpacity onPress={() => setShowFrom(true)} style={styles.input}>
-              <Text>{fromDate.toLocaleDateString()}</Text>
-            </TouchableOpacity>
-            {showFrom && (
-              <DateTimePicker
-                value={fromDate}
-                mode="date"
-                display="default"
-                onChange={(e, date) => {
-                  setShowFrom(false);
-                  if (date) setFromDate(date);
-                }}
-              />
-            )}
-          </View>
-
-          <View style={styles.column}>
-            <Text style={styles.sectionTitle}>To Date</Text>
-            <TouchableOpacity onPress={() => setShowTo(true)} style={styles.input}>
-              <Text>{toDate.toLocaleDateString()}</Text>
-            </TouchableOpacity>
-            {showTo && (
-              <DateTimePicker
-                value={toDate}
-                mode="date"
-                display="default"
-                onChange={(e, date) => {
-                  setShowTo(false);
-                  if (date) setToDate(date);
-                }}
-              />
-            )}
-          </View>
+      {loading && (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#0000ff" />
+          <Text>Loading report...</Text>
         </View>
+      )}
 
-        <Text style={styles.sectionTitle}>Agent</Text>
-        <Picker selectedValue={selectedAgent} onValueChange={setSelectedAgent} style={styles.picker}>
-          <Picker.Item label={`Logged in: ${loggedInUser}`} value="" enabled={false} />
-          {allUsers.map((username, i) => (
-            <Picker.Item key={i} label={username} value={username} />
-          ))}
-        </Picker>
+      {!loading && report && (
+        <>
+          <TouchableOpacity
+            style={[styles.fetchBtn, { backgroundColor: "green" }]}
+            onPress={() => navigation.navigate("winningdetailed", { report })}
+          >
+            <Text style={{ color: "#fff" }}>Generate Detailed Report</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.button} onPress={handleGenerate}>
-          <Text style={styles.buttonText}>Generate Report</Text>
-        </TouchableOpacity>
-      </View>
+          <ScrollView>
+            <Text style={styles.total}>Grand Total: ₹{report.grandTotal}</Text>
+            {report.bills.map((bill, index) => (
+              <View key={index} style={styles.bill}>
+                <Text style={styles.billHeader}>
+                  Bill #{bill.billNo} - Agent: {bill.createdBy}
+                </Text>
+                {bill.winnings.map((w: any, i: number) => (
+                  <Text key={i} style={styles.winningLine}>
+                    {w.number} ({w.type}) x{w.count} → ₹{w.winAmount} [{w.winType}]
+                  </Text>
+                ))}
+                <Text style={styles.billTotal}>Total: ₹{bill.total}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa', paddingTop: 30 },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+  container: { flex: 1, padding: 10, backgroundColor: "#fff" },
+  header: { fontSize: 22, fontWeight: "bold", marginBottom: 10 },
+  dateRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
+  dateBtn: {
+    padding: 10,
+    backgroundColor: "#ddd",
+    borderRadius: 5,
+    width: "48%",
+    alignItems: "center",
   },
-  headerText: { fontSize: 18, fontWeight: 'bold', color: '#222' },
-  card: {
-    margin: 16,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    elevation: 3,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#b71c1c',
-    marginBottom: 6,
-    marginTop: 12,
-  },
-  input: {
-    backgroundColor: '#f1f3f5',
-    borderRadius: 8,
+  fetchBtn: {
     padding: 12,
-    marginBottom: 10,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  picker: {
-    backgroundColor: '#f1f3f5',
-    borderRadius: 8,
+    backgroundColor: "blue",
+    alignItems: "center",
+    borderRadius: 5,
     marginBottom: 10,
   },
-  row: { flexDirection: 'row', justifyContent: 'space-between' },
-  column: { flex: 1, marginRight: 8 },
-  button: {
-    backgroundColor: '#c62828',
-    paddingVertical: 14,
+  total: { fontSize: 18, fontWeight: "600", marginBottom: 15 },
+  bill: {
+    padding: 10,
+    marginBottom: 15,
+    backgroundColor: "#f0f0f0",
     borderRadius: 8,
-    marginTop: 20,
   },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 15,
-    textAlign: 'center',
+  billHeader: { fontSize: 16, fontWeight: "bold" },
+  winningLine: { fontSize: 14, marginVertical: 2 },
+  billTotal: { fontWeight: "bold", marginTop: 5 },
+  center: { alignItems: "center", justifyContent: "center" },
+  errorContainer: {
+    backgroundColor: "#f8d7da",
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 10,
+  },
+  errorText: {
+    color: "#721c24",
+    fontWeight: "600",
   },
 });
