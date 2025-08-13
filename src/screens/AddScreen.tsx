@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 
+import UserPickerRow from "./UserPickerRow";
 
 import axios from 'axios';
 
@@ -50,6 +51,7 @@ const focusNumberInput = () => {
 };
 
 const AddScreen = () => {
+  
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'Add'>>();
 const [modalVisible, setModalVisible] = useState(false);
@@ -61,8 +63,8 @@ type User = {
 };
 
 const [allUsers, setAllUsers] = useState<User[]>([]);
-const [selectedAgent, setSelectedAgent] = useState(loggedInUser || '');
 const [loggedInUser, setLoggedInUser] = useState('');
+const [selection, setSelection] = useState('');
 const [selectedMaster, setSelectedMaster] = useState('');
 const [selectedSub, setSelectedSub] = useState('');
 const masterUsers = allUsers.filter((u) => u.usertype === 'master');
@@ -203,39 +205,6 @@ useEffect(() => {
   }
 }, [loggedInUser]);
 
-useEffect(() => {
-  const loadUserAndUsers = async () => {
-    try {
-      const storedUser = await AsyncStorage.getItem('username');
-
-      if (storedUser) {
-        setLoggedInUser(storedUser);
-
-        const response = await fetch('https://manu-netflix.onrender.com/users');
-        const result = await response.json();
-        console.log('👀 Full /users API response:', result); // Add this!
-
-        if (response.ok && Array.isArray(result)) {
-          const otherUsers = result.filter((user) => user.username !== storedUser);
-
-          const masters = otherUsers.filter((user) => user.usertype === 'master' && !user.blocked);
-          const subs = otherUsers.filter((user) => user.usertype === 'sub' && !user.blocked);
-
-          console.log('👑 Master Users:', masters.map((u) => u.username));
-          console.log('👥 Sub Users:', subs.map((u) => u.username));
-
-          setAllUsers(result);
-        } else {
-          console.error('❌ Invalid response format from /users API');
-        }
-      }
-    } catch (err) {
-      console.error('❌ Error loading users:', err);
-    }
-  };
-
-  loadUserAndUsers();
-}, []);
 
 
 useEffect(() => {
@@ -451,19 +420,6 @@ const checkAndFilterEntries = async () => {
 
   const allNumbers = Object.keys(numberCounts);
 
-  // 2. Get existing counts from DB
-  const res = await fetch('https://manu-netflix.onrender.com/countByNumber', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      numbers: allNumbers,
-      date: dateStr,
-      timeLabel: selectedTime,
-    }),
-  });
-
-  const existingCounts = await res.json(); // e.g., { "123": 48 }
-
   // 3. Filter entries that won't exceed limit
   const maxLimit = 50;
   const filteredEntries: any[] = [];
@@ -479,6 +435,8 @@ const checkAndFilterEntries = async () => {
 
   return filteredEntries;
 };
+
+
 const handleSave = async () => {
   try {
     // Step 1: Get block/unblock time for draw
@@ -515,29 +473,36 @@ const handleSave = async () => {
     // Step 4: Sum counts per [type-number] from new entries
     const newTotalByNumberType = {};
     entries.forEach((entry) => {
-      // Normalize type (remove selectedCode and dashes, uppercase)
       const rawType = entry.type.replace(selectedCode, '').replace(/-/g, '').toUpperCase();
       const key = `${rawType}-${entry.number}`;
       newTotalByNumberType[key] = (newTotalByNumberType[key] || 0) + (entry.count || 1);
     });
 
-    const numbersToCheck = Object.keys(newTotalByNumberType);
-
     // Step 5: Fetch existing counts from backend
+    const numbersToCheck = Object.keys(newTotalByNumberType).map(key => key); // include type-number key
+    console.log('Fetching existing counts with keys:', numbersToCheck);
+
     const countRes = await fetch('https://manu-netflix.onrender.com/countByNumber', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        numbers: numbersToCheck,
         date: todayStr,
         timeLabel: selectedTime,
+        keys: numbersToCheck, // send type-number keys to backend
       }),
     });
-    if (!countRes.ok) throw new Error('Failed to fetch counts');
+
+    if (!countRes.ok) {
+      console.error('Failed to fetch counts:', countRes.status, countRes.statusText);
+      alert('Failed to fetch counts');
+      return;
+    }
+
     const existingCounts = await countRes.json();
+    console.log('Existing counts from backend:', existingCounts);
 
     // Step 6: Validate entries using limits + existing counts
-    const totalSoFar = { ...existingCounts };
+    const totalSoFar = { ...existingCounts }; // keyed by type-number
     const validEntries = [];
     const exceededEntries = [];
 
@@ -546,24 +511,21 @@ const handleSave = async () => {
       const rawType = entry.type.replace(selectedCode, '').replace(/-/g, '').toUpperCase();
       const key = `${rawType}-${entry.number}`;
       const maxLimit = parseInt(allLimits[rawType] || '9999', 10);
-      const currentTotal = totalSoFar[key] || 0;
 
-      // Calculate how many counts can still be added without exceeding limit
+      const currentTotal = totalSoFar[key] || 0;
       const allowedCount = maxLimit - currentTotal;
 
+      console.log(`[VALIDATION] ${key}: Max=${maxLimit}, Current=${currentTotal}, Attempted=${count}, Allowed=${allowedCount}`);
+
       if (allowedCount <= 0) {
-        // Already reached limit, skip this entry completely
         exceededEntries.push({ key, attempted: count, limit: maxLimit, existing: currentTotal, added: 0 });
         continue;
       }
 
       if (count <= allowedCount) {
-        // Can add entire count
         validEntries.push(entry);
         totalSoFar[key] = currentTotal + count;
-        exceededEntries.push({ key, attempted: count, limit: maxLimit, existing: currentTotal, added: count });
       } else {
-        // Can only add partial count up to allowedCount
         validEntries.push({ ...entry, count: allowedCount });
         totalSoFar[key] = currentTotal + allowedCount;
         exceededEntries.push({ key, attempted: count, limit: maxLimit, existing: currentTotal, added: allowedCount });
@@ -586,8 +548,8 @@ const handleSave = async () => {
       entries: validEntries,
       timeLabel: selectedTime,
       timeCode: selectedCode,
-      selectedAgent: selectedAgent || loggedInUser,
-      createdBy: selectedAgent || loggedInUser,
+      selectedAgent: selection || loggedInUser,
+      createdBy: selection || loggedInUser,
       toggleCount: toggleCount,
     };
 
@@ -600,10 +562,10 @@ const handleSave = async () => {
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
+
     clearTimeout(timeoutId);
 
     const saveData = await saveRes.json();
-
     if (saveRes.ok) {
       setBillNumber(saveData?.billNo || '000000');
       setSuccessModalVisible(true);
@@ -611,11 +573,13 @@ const handleSave = async () => {
     } else {
       alert('❌ Error saving: ' + (saveData?.message || 'Unknown error'));
     }
+
   } catch (err) {
     console.error('❌ Save error:', err.message || err);
     alert('❌ Network error. Please try again.');
   }
 };
+
 
 
 
@@ -725,41 +689,19 @@ useEffect(() => {
   <Text style={styles.saveButtonText}>SAVE</Text>
 </TouchableOpacity>
 
+
+
         </View>
-<View style={styles.nameInput}>
-  
- <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: .3 }}>
-  <View style={{ flex: 1, marginRight: 8 }}>
-    <Picker
-      selectedValue={selectedMaster}
-      onValueChange={setSelectedMaster}
-      style={{ backgroundColor: '#fff' }}
-    >
-      {masterUsers.map((user) => (
-        <Picker.Item key={user._id} label={user.username} value={user.username} />
-      ))}
-    </Picker>
-  </View>
 
-  <View style={{ flex: 1, marginLeft: 8 }}>
-    <Picker
-      selectedValue={selectedSub}
-      onValueChange={setSelectedSub}
-      style={{ backgroundColor: '#fff' }}
-    >
-      {subUsers.map((user) => (
-        <Picker.Item key={user._id} label={user.username} value={user.username} />
-      ))}
-    </Picker>
-  </View>
-</View>
+          <View>
+      <UserPickerRow
+  onUserChange={(user) => {
+    console.log("Selected user:", user);
+    setSelection(user || '');
+  }}
+/>
+    </View>
 
-
-
-
-
-
-</View>
 
 
 
@@ -1057,14 +999,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    paddingHorizontal: 15,
   },
   saveButton: {
     backgroundColor: '#FFD700',
@@ -1097,7 +1038,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 8,
-  },
+    paddingHorizontal: 10,},
   checkboxItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1112,6 +1053,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 6,
     backgroundColor: '#c3f7ce',
+    
   },
   namedInput: {
     backgroundColor: '#fff',
@@ -1120,6 +1062,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     justifyContent: 'center',
     height: 36,
+    marginHorizontal: 9,
+
   },
   checkboxChecked: {
     backgroundColor: '#fff',
@@ -1138,6 +1082,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 8,
+    marginHorizontal: 5,
+
+    
   },
   input: {
     flex: 1,
@@ -1148,7 +1095,6 @@ const styles = StyleSheet.create({
   },
   nameInput: {
     backgroundColor: '#fff',
-    paddingHorizontal: 8,
     paddingVertical: 0,
     marginBottom: 10,
     justifyContent: 'center',
@@ -1157,6 +1103,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 0,
+        paddingHorizontal: 8,
+
   },
   actionButton: {
     flex: 1,
@@ -1174,7 +1122,7 @@ entrySection: {
   backgroundColor: '#F2F2F2',
   borderRadius: 8,
   marginTop: 10,
-  minHeight: height * 0.57,
+  minHeight: height * 0.51,
   width: '100%',
   overflow: 'hidden',
 },
@@ -1208,18 +1156,18 @@ entrySection: {
     height: 18,
   },
 
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: 'transparent',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    position: 'absolute',
-    bottom: 10,
-    left: 8,
-    right: 8,
-    marginBottom: 0,
-  },
+ footerRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  paddingHorizontal: 8,
+  paddingVertical: 8,
+  position: 'absolute',
+  bottom: 10,
+  left: 8,
+  right: 8,
+  backgroundColor: 'transparent', // or '#fff' if you want visible bg
+  marginBottom: 0,
+},
   footerBtn: {
     flex: 1,
     paddingVertical: 10,
@@ -1304,7 +1252,7 @@ entrySection: {
    tableFooter: {
     backgroundColor: '#fff',
     paddingVertical: 8,
-    marginTop: 29,
+    marginTop: 26,
     borderRadius: 8,
     elevation: 3,  // subtle shadow for Android
     shadowColor: '#000',  // iOS shadow
