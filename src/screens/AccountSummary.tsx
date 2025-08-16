@@ -351,7 +351,7 @@ const fetchDataAndNavigate = async () => {
 
 
         <TouchableOpacity style={styles.generateButton} onPress={fetchDataAndNavigate}>
-          <Text style={styles.generateButtonText}>Generate Net Pay Report</Text>
+          <Text style={styles.generateButtonText}>Generate Account Summary</Text>
         </TouchableOpacity>
       </View>
 

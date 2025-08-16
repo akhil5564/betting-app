@@ -83,55 +83,108 @@ const [userRates, setUserRates] = useState<{ [username: string]: number }>({});
 
   //   fetchRate();
   // }, [loggedInUser?.id, selectedTime]);
-useEffect(() => {
-const fetchAllRates = async () => {
-  const usersToFetch = fromAccountSummary
-      ? [loggedInUser] // single user
-      : usernames; // all usernames in the filtered list
-console.log("usersToFetch",usersToFetch);
-
-  const ratePromises = usersToFetch.map(async (user) => {
-    try {
-      const encodedDraw = encodeURIComponent(time);
-        let url =`https://manu-netflix.onrender.com/rateMaster?user=${user}&draw=${encodedDraw}`
-        const res = await fetch(url);
-        const data = await res.json();
-        const ratesArray = data?.rates || [];
-          const ratesByType: { [label: string]: number } = {};
-      ratesArray.forEach((r) => {
-        ratesByType[r.label] = r.rate;
-      });
-        console.log("urlllllllllllll",url);
-        console.log("urlllllllllllll",data);
-        console.log("urlllllllllllll",ratesByType);
-
-      return { user, rates: ratesByType };
-    } catch {
-      return { user, rates: {} };
-    }
-  });
-
-  const results = await Promise.all(ratePromises);
-  const userRates: { [username: string]: { [label: string]: number } } = {};
-  results.forEach((r) => (userRates[r.user] = r.rates));
-  setUserRates(userRates);
-};
-
-
-  if (usernames.length > 0) fetchAllRates();
-}, [usernames, time]);
-  // Filter by date range
   const filteredByDateRange = matchedEntries.filter((entry: any) => {
     const entryDate = entry.createdAt
       ? entry.createdAt.split("T")[0]
       : entry.date;
     return entryDate >= fromDate && entryDate <= toDate;
   });
-
-  // Extract usernames from entries
-  const usernames = Array.from(
+    const usernames = Array.from(
     new Set(filteredByDateRange.map((e) => e.username || e.createdBy))
   );
+// useEffect(() => {
+// const fetchAllRates = async () => {
+//   const usersToFetch = fromAccountSummary
+//       ? [loggedInUser] // single user
+//       : usernames; // all usernames in the filtered list
+// console.log("usersToFetch",usersToFetch);
+
+//   const ratePromises = usersToFetch.map(async (user) => {
+//     try {
+//       const encodedDraw = encodeURIComponent(time);
+//         let url =`https://manu-netflix.onrender.com/rateMaster?user=${user}&draw=${encodedDraw}`
+//         const res = await fetch(url);
+//         const data = await res.json();
+//         const ratesArray = data?.rates || [];
+//           const ratesByType: { [label: string]: number } = {};
+//       ratesArray.forEach((r) => {
+//         ratesByType[r.label] = r.rate;
+//       });
+//         console.log("urlllllllllllll",url);
+//         console.log("urlllllllllllll",data);
+//         console.log("urlllllllllllll",ratesByType);
+
+//       return { user, rates: ratesByType };
+//     } catch {
+//       return { user, rates: {} };
+//     }
+//   });
+
+//   const results = await Promise.all(ratePromises);
+//   const userRates: { [username: string]: { [label: string]: number } } = {};
+//   results.forEach((r) => (userRates[r.user] = r.rates));
+//   setUserRates(userRates);
+// };
+
+
+//   if (usernames.length > 0) fetchAllRates();
+// }, [usernames, time]);
+
+useEffect(() => {
+  const fetchAllRates = async () => {
+    try {
+      console.log("ddddddddddddddddd",[loggedInUser]);
+      console.log("ddddddddddddddddd",usernames);
+      
+      let usersToFetch = fromAccountSummary
+        ? [loggedInUser] // only fetch admin rate
+        : usernames; // all users normally
+
+      const ratePromises = usersToFetch.map(async (user) => {
+        const encodedDraw = encodeURIComponent(time);
+        const url = `https://manu-netflix.onrender.com/rateMaster?user=${user}&draw=${encodedDraw}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const ratesArray = data?.rates || [];
+        const ratesByType: { [label: string]: number } = {};
+        ratesArray.forEach((r) => {
+          ratesByType[r.label] = r.rate;
+        });
+        return ratesByType;
+      });
+
+      const results = await Promise.all(ratePromises);
+
+      let newUserRates: { [username: string]: { [label: string]: number } } = {};
+
+      if (fromAccountSummary) {
+        // Map the admin rate to all usernames
+        const adminRates = results[0] || {};
+        usernames.forEach((user) => {
+          newUserRates[user] = adminRates;
+        });
+      } else {
+        // Map each fetched rate to the corresponding username
+        usernames.forEach((user, i) => {
+          newUserRates[user] = results[i] || {};
+        });
+      }
+
+      setUserRates(newUserRates);
+      console.log("Final userRates", newUserRates);
+    } catch (err) {
+      console.error("Error fetching rates:", err);
+    }
+  };
+
+  if (usernames.length > 0) fetchAllRates();
+}, [usernames, time, fromAccountSummary, loggedInUser]);
+
+  // Filter by date range
+
+
+  // Extract usernames from entries
+
 
   // Determine users to include (selected + all sub-users)
   const selectedHierarchyUsers =
