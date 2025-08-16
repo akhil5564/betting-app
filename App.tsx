@@ -18,6 +18,7 @@ import SalesReportScreen from './src/screens/SalesReportScreen';
 import WinningReportScreen from './src/screens/WinningReportScreen';
 import NumberWiseReportScreen from './src/screens/NumberWiseReportScreen';
 import NetpayScreen from './src/screens/NetPayScreen';
+import AccountSummary from './src/screens/AccountSummary';
 import UsersScreen from './src/screens/UsersScreen';
 import CreateUserScreen from './src/screens/CreateUserScreen';
 import ListUserScreen from './src/screens/ListUserScreen';
@@ -51,6 +52,7 @@ export type RootStackParamList = {
   WinningReportScreen: undefined;
   NumberWiseReportScreen: undefined;
   NetPayScreen: undefined;
+  AccountSummary: undefined;
   UsersScreen: undefined;
   CreateUser: undefined;
   ListUsers: undefined;
@@ -91,6 +93,7 @@ export default function App() {
           <Stack.Screen name="WinningReportScreen" component={WinningReportScreen} />
           <Stack.Screen name="NumberWiseReportScreen" component={NumberWiseReportScreen} />
           <Stack.Screen name="NetPayScreen" component={NetpayScreen} />
+          <Stack.Screen name="AccountSummary" component={AccountSummary} />
           <Stack.Screen name="UsersScreen" component={UsersScreen} />
           <Stack.Screen name="CreateUser" component={CreateUserScreen} />
           <Stack.Screen name="ListUsers" component={ListUserScreen} />
