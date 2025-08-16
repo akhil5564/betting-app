@@ -44,7 +44,7 @@ export function extractBetType(typeStr) {
   return parts[parts.length - 1]; // Get the last part (SUPER, BOX, etc.)
 }
 
-export default function NetPayMultiDayScreen() {
+export default function AccountSummary() {
   const navigation = useNavigation();
   const [fromDate, setFromDate] = useState(new Date());
   const [toDate, setToDate] = useState(new Date());
@@ -61,6 +61,7 @@ export default function NetPayMultiDayScreen() {
     const loadUserAndUsers = async () => {
       try {
         const storedUser = await AsyncStorage.getItem("username");
+        
         if (storedUser) {
           setSelectedAgent(storedUser);
           setLoggedInUser(storedUser);
@@ -256,6 +257,8 @@ const fetchDataAndNavigate = async () => {
       agent: selectedAgent || "All Agents",
       matchedEntries: allEntries,
       usersList,
+      fromAccountSummary:true,
+      loggedInUser
     });
   } catch (err: any) {
     setError("Failed to fetch data: " + err.message);
@@ -273,7 +276,7 @@ const fetchDataAndNavigate = async () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerText}>Net Pay Report</Text>
+        <Text style={styles.headerText}>Account Summary</Text>
         <View style={{ width: 24 }} />
       </View>
 

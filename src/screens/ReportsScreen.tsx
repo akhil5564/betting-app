@@ -27,6 +27,11 @@ const ReportsScreen = () => {
       icon: <MaterialIcons name="money" size={24} color="white" />,
       screen: 'NetPayScreen',
     },
+    {
+      title: 'Account Summary',
+      icon: <MaterialIcons name="account-balance" size={24} color="white" />,
+      screen: 'AccountSummary',
+    },
   ];
 
   return (

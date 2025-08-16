@@ -74,8 +74,8 @@ const handleGenerateReport = async () => {
       return `${year}-${month}-${day}`;
     };
 
-    const from = formatDate(fromDate); // YYYY-MM-DD
-    const to = formatDate(toDate);     // YYYY-MM-DD
+    const from = formatDate(fromDate);
+    const to = formatDate(toDate);
 
     const query = new URLSearchParams({
       createdBy: selectedAgent,
@@ -84,23 +84,47 @@ const handleGenerateReport = async () => {
       toDate: to,
     }).toString();
 
+    // Fetch entries
     const response = await fetch(`https://manu-netflix.onrender.com/entries?${query}`);
     const data = await response.json();
 
     console.log('📦 Query URL:', `https://manu-netflix.onrender.com/entries?${query}`);
 
+    // Fetch rateMaster
+    const rateRes = await fetch(
+      `https://manu-netflix.onrender.com/rateMaster?user=${encodeURIComponent(selectedAgent)}&draw=${encodeURIComponent(selectedTime)}`
+    );
+    const rateData = await rateRes.json();
+
+    const rateLookup: { [key: string]: number } = {};
+    (rateData?.rates || []).forEach((r: any) => {
+      rateLookup[r.label] = Number(r.rate) || 10; // fallback to 10
+    });
+    console.log("Rate lookup:", rateLookup);
+
+    // Helper to extract bet type from entry.type
+    const extractBetType = (typeStr: string) => {
+      if (!typeStr) return "SUPER";
+      const parts = typeStr.split("-");
+      return parts[parts.length - 1]; // e.g., SUPER, AB, etc.
+    };
+
+    // Calculate totals using dynamic rates
     let totalCount = 0;
+    let totalSales = 0;
+
     data.forEach((entry) => {
-      const count = Number(entry.count);
-      if (!isNaN(count)) totalCount += count;
+      const count = Number(entry.count) || 0;
+      const betType = extractBetType(entry.type);
+      const rate = rateLookup[betType] ?? 10; // fallback to 10 if not found
+      totalCount += count;
+      totalSales += count * rate;
     });
 
-    const amount = totalCount * 10;
-
-    // ✅ Only one navigation
+    // Navigate with totals
     navigation.navigate('SalesReportSummery', {
       count: totalCount,
-      amount,
+      amount: totalSales,           // ✅ use dynamic sales
       date: `${from} to ${to} (${selectedTime})`,
       fromDate: from,
       toDate: to,
@@ -112,6 +136,7 @@ const handleGenerateReport = async () => {
     console.error('❌ Error generating report:', error);
   }
 };
+
 
 
 

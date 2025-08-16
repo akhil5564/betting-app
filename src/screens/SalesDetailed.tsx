@@ -52,6 +52,7 @@ const SalesReportDetailedAll = () => {
 
   const [groupedEntries, setGroupedEntries] = useState<GroupedEntry[]>([]);
   const [loading, setLoading] = useState(true);
+const [rateLookup, setRateLookup] = useState<{ [key: string]: number }>({});
 
   useEffect(() => {
     const fetchFilteredEntries = async () => {
@@ -103,8 +104,22 @@ const SalesReportDetailedAll = () => {
   }, [fromDate, toDate, createdBy, timeLabel, entries]);
 
   const renderGroupedEntry = ({ item }: { item: GroupedEntry }) => {
-    const totalCount = item.items.reduce((sum, i) => sum + i.count, 0);
-    const totalAmount = totalCount * 10;
+    const getBetType = (type: string) => {
+    if (!type) return 'SUPER'; // default
+    const parts = type.split('-');
+    return parts[parts.length - 1]; // e.g., SUPER, AB, etc.
+  };
+
+  let totalCount = 0;
+  let totalAmount = 0;
+
+  item.items.forEach((entry) => {
+    const count = Number(entry.count) || 0;
+    const betType = getBetType(entry.type);
+    const rate = rateLookup[betType] ?? 10; // fallback
+    totalCount += count;
+    totalAmount += count * rate;
+  });
 
     return (
       <View style={styles.billContainer}>
@@ -143,17 +158,54 @@ const SalesReportDetailedAll = () => {
           </Text>
         </TouchableOpacity>
 
-        {item.items.map((entry, idx) => (
-          <View style={styles.itemRow} key={entry._id + idx}>
-            <Text style={styles.itemCell}>{entry.timeLabel}</Text>
-            <Text style={styles.itemCell}>{entry.number}</Text>
-            <Text style={styles.itemCell}>{entry.count}</Text>
-            <Text style={styles.itemCell}>{(entry.count * 10).toFixed(2)}</Text>
-          </View>
-        ))}
+       {item.items.map((entry, idx) => {
+  const betType = getBetType(entry.type);
+  const rate = rateLookup[betType] ?? 10;
+  return (
+    <View style={styles.itemRow} key={entry._id + idx}>
+      <Text style={styles.itemCell}>{entry.timeLabel}</Text>
+      <Text style={styles.itemCell}>{entry.number}</Text>
+      <Text style={styles.itemCell}>{entry.count}</Text>
+      <Text style={styles.itemCell}>{(entry.count * rate).toFixed(2)}</Text>
+    </View>
+  );
+})}
+
       </View>
     );
   };
+useEffect(() => {
+  const fetchRates = async () => {
+    try {
+      if (!createdBy || !timeLabel || timeLabel === 'all') return;
+
+      const rateRes = await fetch(
+        `https://manu-netflix.onrender.com/rateMaster?user=${encodeURIComponent(createdBy)}&draw=${encodeURIComponent(timeLabel)}`
+      );
+      const rateData = await rateRes.json();
+      const lookup: { [key: string]: number } = {};
+      (rateData?.rates || []).forEach((r: any) => {
+        lookup[r.label] = Number(r.rate) || 10; // fallback to 10
+      });
+      setRateLookup(lookup);
+      console.log('Rate lookup:', lookup);
+    } catch (err) {
+      console.error('❌ Error fetching rates:', err);
+    }
+  };
+
+  fetchRates();
+}, [createdBy, timeLabel]);
+useEffect(() => {
+  if (groupedEntries.length && Object.keys(rateLookup).length) {
+    setGroupedEntries(prev =>
+      prev.map(group => ({
+        ...group,
+        items: [...group.items], // forces re-render
+      }))
+    );
+  }
+}, [rateLookup]);
 
   return (
     <SafeAreaView style={styles.container}>

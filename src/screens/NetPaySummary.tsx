@@ -8,6 +8,7 @@ import {
   Animated,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
+import { extractBetType } from "./NetPayScreen";
 
 const { width, height } = Dimensions.get("window");
 const emojiOptions = ["🎉", "🎊", "✨", "💥", "🧨"];
@@ -47,39 +48,78 @@ export default function WinningDetailed({ route }: any) {
     usersList = [],
     loggedInUser, // must include loggedInUser.id or loggedInUser.username
     selectedTime = "KERALA 3 PM", // optional default draw name
+    time,
+    fromAccountSummary
   } = route.params || {};
+console.log("paramssssss",route.params);
 
-  const [selectedUser, setSelectedUser] = useState("All");
+const [selectedUser, setSelectedUser] = useState("All");
   const [rate, setRate] = useState<number>(10); // default until fetched
-
+const [userRates, setUserRates] = useState<{ [username: string]: number }>({});
   // 🔹 Fetch rate from API dynamically
-  useEffect(() => {
-    const fetchRate = async () => {
-      try {
-        if (!loggedInUser?.id) {
-          console.warn("No logged-in user ID provided for rate fetch");
-          return;
-        }
+  // useEffect(() => {
+  //   const fetchRate = async () => {
+  //     try {
+  //       if (!loggedInUser?.id) {
+  //         console.warn("No logged-in user ID provided for rate fetch");
+  //         return;
+  //       }
 
-        const encodedDraw = encodeURIComponent(selectedTime);
-        const url = `https://manu-netflix.onrender.com/rateMaster?user=${loggedInUser.id}&draw=${encodedDraw}`;
+  //       const encodedDraw = encodeURIComponent(selectedTime);
+  //       const url = `https://manu-netflix.onrender.com/rateMaster?user=${loggedInUser.id}&draw=${encodedDraw}`;
 
+  //       const res = await fetch(url);
+  //       const data = await res.json();
+
+  //       if (data?.rate) {
+  //         setRate(Number(data.rate));
+  //       } else {
+  //         console.warn("API did not return a valid rate", data);
+  //       }
+  //     } catch (error) {
+  //       console.error("Error fetching rate:", error);
+  //     }
+  //   };
+
+  //   fetchRate();
+  // }, [loggedInUser?.id, selectedTime]);
+useEffect(() => {
+const fetchAllRates = async () => {
+  const usersToFetch = fromAccountSummary
+      ? [loggedInUser] // single user
+      : usernames; // all usernames in the filtered list
+console.log("usersToFetch",usersToFetch);
+
+  const ratePromises = usersToFetch.map(async (user) => {
+    try {
+      const encodedDraw = encodeURIComponent(time);
+        let url =`https://manu-netflix.onrender.com/rateMaster?user=${user}&draw=${encodedDraw}`
         const res = await fetch(url);
         const data = await res.json();
+        const ratesArray = data?.rates || [];
+          const ratesByType: { [label: string]: number } = {};
+      ratesArray.forEach((r) => {
+        ratesByType[r.label] = r.rate;
+      });
+        console.log("urlllllllllllll",url);
+        console.log("urlllllllllllll",data);
+        console.log("urlllllllllllll",ratesByType);
 
-        if (data?.rate) {
-          setRate(Number(data.rate));
-        } else {
-          console.warn("API did not return a valid rate", data);
-        }
-      } catch (error) {
-        console.error("Error fetching rate:", error);
-      }
-    };
+      return { user, rates: ratesByType };
+    } catch {
+      return { user, rates: {} };
+    }
+  });
 
-    fetchRate();
-  }, [loggedInUser?.id, selectedTime]);
+  const results = await Promise.all(ratePromises);
+  const userRates: { [username: string]: { [label: string]: number } } = {};
+  results.forEach((r) => (userRates[r.user] = r.rates));
+  setUserRates(userRates);
+};
 
+
+  if (usernames.length > 0) fetchAllRates();
+}, [usernames, time]);
   // Filter by date range
   const filteredByDateRange = matchedEntries.filter((entry: any) => {
     const entryDate = entry.createdAt
@@ -109,12 +149,21 @@ export default function WinningDetailed({ route }: any) {
     const entries = filteredUsers.filter(
       (e) => (e.username || e.createdBy) === user
     );
-    const totalCount = entries.reduce((sum, e) => sum + (e.count || 0), 0);
-    const totalWinning = entries.reduce(
-      (sum, e) => sum + (e.winAmount || 0),
-      0
-    );
-    const totalSales = totalCount * rate; // 🔹 dynamic rate here
+  //   const totalCount = entries.reduce((sum, e) => sum + (e.count || 0), 0);
+  //   const totalWinning = entries.reduce(
+  //     (sum, e) => sum + (e.winAmount || 0),
+  //     0
+  //   );
+  //    const userRate = userRates[user] || 10; // use dynamic rate
+  // const totalSales = totalCount * userRate;
+    const totalSales = entries.reduce((sum, entry) => {
+    const betType = extractBetType(entry.type);
+    const rate = userRates[user]?.[betType] ?? 10;
+    return sum + (entry.count || 0) * rate;
+  }, 0);
+
+  const totalWinning = entries.reduce((sum, e) => sum + (e.winAmount || 0), 0);
+
     return {
       user,
       totalEntries: entries.length,
@@ -161,7 +210,7 @@ export default function WinningDetailed({ route }: any) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.text }]}>
-        User-wise Summary
+       {fromAccountSummary?"Account":'User-wise'} Summary
       </Text>
 
       {/* User Filter */}
@@ -206,7 +255,7 @@ export default function WinningDetailed({ route }: any) {
               Winning
             </Text>
             <Text style={[styles.cell, { width: 120, color: colors.text }]}>
-              Net Pay
+             Net Pay
             </Text>
           </View>
 
