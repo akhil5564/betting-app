@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Domain } from './NetPayScreen';
 
 const CreateUserScreen = () => {
   const navigation = useNavigation();
@@ -42,7 +43,7 @@ const CreateUserScreen = () => {
     };
 
     try {
-      const response = await fetch('https://manu-netflix.onrender.com/newuser', {
+      const response = await fetch(`${Domain}/newuser`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

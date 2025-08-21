@@ -12,20 +12,8 @@ import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Domain } from "./NetPayScreen";
 
-const payouts = {
-  SUPER: { 1: 5000, 2: 500, 3: 250, 4: 100, 5: 50, other: 20 },
-  BOX: {
-    normal: { perfect: 3000, permutation: 800 },
-    double: { perfect: 3800, permutation: 1600 },
-  },
-  AB_BC_AC: 700,
-  A_B_C: 100,
-};
-
-function isDoubleNumber(numStr) {
-  return new Set(numStr.split("")).size === 2;
-}
 
 function addDays(date, days) {
   const result = new Date(date);
@@ -67,7 +55,7 @@ export default function AccountSummary() {
           setLoggedInUser(storedUser);
 
           const response = await fetch(
-            "https://manu-netflix.onrender.com/users"
+            `${Domain}/users`
           );
           const data = await response.json();
 
@@ -94,105 +82,6 @@ export default function AccountSummary() {
     loadUserAndUsers();
   }, []);
 
-  const calculateWinAmount = (entry, results) => {
-    if (!results || !results["1"]) return 0;
-
-    const firstPrize = results["1"];
-    const others = Array.isArray(results.others) ? results.others : [];
-    const allPrizes = [
-      results["1"],
-      results["2"],
-      results["3"],
-      results["4"],
-      results["5"],
-      ...others,
-    ].filter(Boolean);
-
-    const num = entry.number;
-    const count = entry.count || 0;
-    const baseType = extractBetType(entry.type);
-
-    let winAmount = 0;
-    
-    if (baseType === "SUPER") {
-      const prizePos = allPrizes.indexOf(num) + 1;
-      if (prizePos > 0) {
-        winAmount = (payouts.SUPER[prizePos] || payouts.SUPER.other) * count;
-      }
-    } else if (baseType === "BOX") {
-      if (num === firstPrize) {
-        winAmount = isDoubleNumber(firstPrize)
-          ? payouts.BOX.double.perfect * count
-          : payouts.BOX.normal.perfect * count;
-      } else if (
-        num.split("").sort().join("") === firstPrize.split("").sort().join("")
-      ) {
-        winAmount = isDoubleNumber(firstPrize)
-          ? payouts.BOX.double.permutation * count
-          : payouts.BOX.normal.permutation * count;
-      }
-    } else if (baseType === "AB" && num === firstPrize.slice(0, 2)) {
-      winAmount = payouts.AB_BC_AC * count;
-    } else if (baseType === "BC" && num === firstPrize.slice(1, 3)) {
-      winAmount = payouts.AB_BC_AC * count;
-    } else if (baseType === "AC" && num === firstPrize[0] + firstPrize[2]) {
-      winAmount = payouts.AB_BC_AC * count;
-    } else if (baseType === "A" && num === firstPrize[0]) {
-      winAmount = payouts.A_B_C * count;
-    } else if (baseType === "B" && num === firstPrize[1]) {
-      winAmount = payouts.A_B_C * count;
-    } else if (baseType === "C" && num === firstPrize[2]) {
-      winAmount = payouts.A_B_C * count;
-    }
-
-    return winAmount;
-  };
-
-  const processEntriesForDate = (entriesForDay, resultForDay) =>
-    entriesForDay.map((entry) => ({
-      ...entry,
-      winAmount: calculateWinAmount(entry, resultForDay),
-      // Extract date from createdAt field
-      date: entry.createdAt ? entry.createdAt.split("T")[0] : formatDate(new Date()),
-    }));
-
-const fetchEntriesAndResultsForDate = async (dateStr, timeLabel, agentUsers: string[]) => {
-  try {
-    console.log(`=== Fetching data for ${dateStr} - ${timeLabel} ===`);
-
-    // Build URL with multiple createdBy parameters
-    const queryParams = agentUsers.map(user => `createdBy=${encodeURIComponent(user)}`);
-    queryParams.push(`timeLabel=${encodeURIComponent(timeLabel)}`);
-    const apiUrl = `https://manu-netflix.onrender.com/entries?${queryParams.join('&')}`;
-    
-    console.log(`API URL: ${apiUrl}`);
-    
-    const entriesRes = await axios.get(apiUrl);
-    const allEntries = entriesRes.data || [];
-    
-    // Filter entries by date
-    const filteredEntries = allEntries.filter(entry => {
-      if (!entry.createdAt) return false;
-      return entry.createdAt.split("T")[0] === dateStr;
-    });
-
-    // Fetch results
-    const resultRes = await axios.get(
-      "https://manu-netflix.onrender.com/getResult",
-      { params: { date: dateStr, time: timeLabel } }
-    );
-
-    const resultsArray = resultRes.data;
-    const latestResult = Array.isArray(resultsArray) && resultsArray.length > 0
-      ? resultsArray[resultsArray.length - 1]
-      : {};
-
-    return { entries: filteredEntries, result: latestResult || {} };
-  } catch (error) {
-    console.error(`❌ Error fetching data for ${dateStr}:`, error.message);
-    return { entries: [], result: {} };
-  }
-};
 
 
 
@@ -211,61 +100,46 @@ const getAllDescendants = (username: string, usersList: any[]): string[] => {
 };
 
 
-const fetchDataAndNavigate = async () => {
-  setLoading(true);
-  setError("");
+  const fetchDataAndNavigate = async () => {
+    setLoading(true);
+    setError("");
 
-  try {
-    const usersRes = await axios.get("https://manu-netflix.onrender.com/users");
-    const usersList = usersRes.data || [];
+    try {
+      const url = `${Domain}/report/netpay-multiday`;
+      const response = await axios.post(url, {
+        fromDate: formatDate(fromDate),
+        toDate: formatDate(toDate),
+        time: selectedTime,
+        agent: selectedAgent,
+        fromAccountSummary: true,   // ✅ important
+        loggedInUser,              // ✅ so backend knows whose rates to use
+      });
 
-    // Selected agent + descendants
-    const agentUsers = selectedAgent
-      ? [selectedAgent, ...getAllDescendants(selectedAgent, usersList)]
-      : usersList.map(u => u.username);
-
-    const dates = [];
-    let current = new Date(fromDate);
-    const end = new Date(toDate);
-    while (current <= end) {
-      dates.push(formatDate(current));
-      current = addDays(current, 1);
-    }
-
-    let allEntries = [];
-
-    for (const dateStr of dates) {
-      const { entries: dayEntries, result: dayResult } =
-        await fetchEntriesAndResultsForDate(dateStr, selectedTime, agentUsers);
-
-      if (dayEntries.length > 0) {
-        const processedEntries = processEntriesForDate(dayEntries, dayResult);
-        allEntries = allEntries.concat(processedEntries);
+      const allEntries = response.data.entries || [];
+      if (allEntries.length === 0) {
+        setError("No entries found for the selected date range and agent.");
+        setLoading(false);
+        return;
       }
-    }
 
-    if (allEntries.length === 0) {
-      setError("No entries found for the selected date range and agent.");
+      navigation.navigate("netdetailed", {
+        fromDate: formatDate(fromDate),
+        toDate: formatDate(toDate),
+        time: selectedTime,
+        agent: selectedAgent || "All Agents",
+        matchedEntries: allEntries,
+        usersList: response.data.usersList || [],
+        userRates: response.data.userRates || {}, // ✅ backend already gives
+        fromAccountSummary: true,
+        loggedInUser,
+      });
+    } catch (err: any) {
+      setError("Failed to fetch data: " + err.message);
+    } finally {
       setLoading(false);
-      return;
     }
+  };
 
-    navigation.navigate("netdetailed", {
-      fromDate: formatDate(fromDate),
-      toDate: formatDate(toDate),
-      time: selectedTime,
-      agent: selectedAgent || "All Agents",
-      matchedEntries: allEntries,
-      usersList,
-      fromAccountSummary:true,
-      loggedInUser
-    });
-  } catch (err: any) {
-    setError("Failed to fetch data: " + err.message);
-  } finally {
-    setLoading(false);
-  }
-};
 
 
 

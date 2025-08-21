@@ -43,7 +43,9 @@ export function extractBetType(typeStr) {
   const parts = typeStr.split("-");
   return parts[parts.length - 1]; // Get the last part (SUPER, BOX, etc.)
 }
-
+export const Domain = "http://10.55.4.85:5000";
+// export const  Domain ='https://www.muralibajaj.site'
+// export const  Domain ='https://manu-netflix.onrender.com'
 export default function NetPayMultiDayScreen() {
   const navigation = useNavigation();
   const [fromDate, setFromDate] = useState(new Date());
@@ -66,7 +68,7 @@ export default function NetPayMultiDayScreen() {
           setLoggedInUser(storedUser);
 
           const response = await fetch(
-            "https://manu-netflix.onrender.com/users"
+            `${Domain}/users`
           );
           const data = await response.json();
 
@@ -162,7 +164,7 @@ const fetchEntriesAndResultsForDate = async (dateStr, timeLabel, agentUsers: str
     // Build URL with multiple createdBy parameters
     const queryParams = agentUsers.map(user => `createdBy=${encodeURIComponent(user)}`);
     queryParams.push(`timeLabel=${encodeURIComponent(timeLabel)}`);
-    const apiUrl = `https://manu-netflix.onrender.com/entries?${queryParams.join('&')}`;
+    const apiUrl = `${Domain}/entries?${queryParams.join('&')}`;
     
     console.log(`API URL: ${apiUrl}`);
     
@@ -177,7 +179,7 @@ const fetchEntriesAndResultsForDate = async (dateStr, timeLabel, agentUsers: str
 
     // Fetch results
     const resultRes = await axios.get(
-      "https://manu-netflix.onrender.com/getResult",
+      `${Domain}/getResult`,
       { params: { date: dateStr, time: timeLabel } }
     );
 
@@ -210,60 +212,96 @@ const getAllDescendants = (username: string, usersList: any[]): string[] => {
 };
 
 
+// const fetchDataAndNavigate = async () => {
+//   setLoading(true);
+//   setError("");
+
+//   try {
+//     const usersRes = await axios.get("https://manu-netflix.onrender.com/users");
+//     const usersList = usersRes.data || [];
+
+//     // Selected agent + descendants
+//     const agentUsers = selectedAgent
+//       ? [selectedAgent, ...getAllDescendants(selectedAgent, usersList)]
+//       : usersList.map(u => u.username);
+
+//     const dates = [];
+//     let current = new Date(fromDate);
+//     const end = new Date(toDate);
+//     while (current <= end) {
+//       dates.push(formatDate(current));
+//       current = addDays(current, 1);
+//     }
+
+//     let allEntries = [];
+
+//     for (const dateStr of dates) {
+//       const { entries: dayEntries, result: dayResult } =
+//         await fetchEntriesAndResultsForDate(dateStr, selectedTime, agentUsers);
+
+//       if (dayEntries.length > 0) {
+//         const processedEntries = processEntriesForDate(dayEntries, dayResult);
+//         allEntries = allEntries.concat(processedEntries);
+//       }
+//     }
+
+//     if (allEntries.length === 0) {
+//       setError("No entries found for the selected date range and agent.");
+//       setLoading(false);
+//       return;
+//     }
+
+//     navigation.navigate("netdetailed", {
+//       fromDate: formatDate(fromDate),
+//       toDate: formatDate(toDate),
+//       time: selectedTime,
+//       agent: selectedAgent || "All Agents",
+//       matchedEntries: allEntries,
+//       usersList,
+//     });
+//   } catch (err: any) {
+//     setError("Failed to fetch data: " + err.message);
+//   } finally {
+//     setLoading(false);
+//   }
+// };
+
 const fetchDataAndNavigate = async () => {
   setLoading(true);
-  setError("");
-
+  setError('');
   try {
-    const usersRes = await axios.get("https://manu-netflix.onrender.com/users");
-    const usersList = usersRes.data || [];
+      let url =`${Domain}/report/netpay-multiday`
+      console.log("sssssssssssssssssss",url);
+    const response = await axios.post(url, {
+      fromDate: formatDate(fromDate),
+      toDate: formatDate(toDate),
+      time: selectedTime,
+      agent: selectedAgent,
+    });
 
-    // Selected agent + descendants
-    const agentUsers = selectedAgent
-      ? [selectedAgent, ...getAllDescendants(selectedAgent, usersList)]
-      : usersList.map(u => u.username);
-
-    const dates = [];
-    let current = new Date(fromDate);
-    const end = new Date(toDate);
-    while (current <= end) {
-      dates.push(formatDate(current));
-      current = addDays(current, 1);
-    }
-
-    let allEntries = [];
-
-    for (const dateStr of dates) {
-      const { entries: dayEntries, result: dayResult } =
-        await fetchEntriesAndResultsForDate(dateStr, selectedTime, agentUsers);
-
-      if (dayEntries.length > 0) {
-        const processedEntries = processEntriesForDate(dayEntries, dayResult);
-        allEntries = allEntries.concat(processedEntries);
-      }
-    }
-
+    const allEntries = response.data.entries || [];
     if (allEntries.length === 0) {
       setError("No entries found for the selected date range and agent.");
       setLoading(false);
       return;
     }
-
+    // Now you have all processed entries with winAmount from backend!
     navigation.navigate("netdetailed", {
       fromDate: formatDate(fromDate),
       toDate: formatDate(toDate),
       time: selectedTime,
       agent: selectedAgent || "All Agents",
       matchedEntries: allEntries,
-      usersList,
+       userRates: response.data.userRates, 
+       usersList: response.data.usersList || [],
+      // usersList if you still need it
     });
-  } catch (err: any) {
+  } catch (err) {
     setError("Failed to fetch data: " + err.message);
   } finally {
     setLoading(false);
   }
 };
-
 
 
   return (

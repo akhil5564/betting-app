@@ -8,7 +8,7 @@ import {
   Animated,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
-import { extractBetType } from "./NetPayScreen";
+import { Domain, extractBetType } from "./NetPayScreen";
 
 const { width, height } = Dimensions.get("window");
 const emojiOptions = ["🎉", "🎊", "✨", "💥", "🧨"];
@@ -49,40 +49,15 @@ export default function WinningDetailed({ route }: any) {
     loggedInUser, // must include loggedInUser.id or loggedInUser.username
     selectedTime = "KERALA 3 PM", // optional default draw name
     time,
-    fromAccountSummary
+    fromAccountSummary,
+    userRates={},
   } = route.params || {};
 console.log("paramssssss",route.params);
 
 const [selectedUser, setSelectedUser] = useState("All");
   const [rate, setRate] = useState<number>(10); // default until fetched
-const [userRates, setUserRates] = useState<{ [username: string]: number }>({});
-  // 🔹 Fetch rate from API dynamically
-  // useEffect(() => {
-  //   const fetchRate = async () => {
-  //     try {
-  //       if (!loggedInUser?.id) {
-  //         console.warn("No logged-in user ID provided for rate fetch");
-  //         return;
-  //       }
-
-  //       const encodedDraw = encodeURIComponent(selectedTime);
-  //       const url = `https://manu-netflix.onrender.com/rateMaster?user=${loggedInUser.id}&draw=${encodedDraw}`;
-
-  //       const res = await fetch(url);
-  //       const data = await res.json();
-
-  //       if (data?.rate) {
-  //         setRate(Number(data.rate));
-  //       } else {
-  //         console.warn("API did not return a valid rate", data);
-  //       }
-  //     } catch (error) {
-  //       console.error("Error fetching rate:", error);
-  //     }
-  //   };
-
-  //   fetchRate();
-  // }, [loggedInUser?.id, selectedTime]);
+// const [userRates, setUserRates] = useState<{ [username: string]: number }>({});
+  
   const filteredByDateRange = matchedEntries.filter((entry: any) => {
     const entryDate = entry.createdAt
       ? entry.createdAt.split("T")[0]
@@ -92,101 +67,7 @@ const [userRates, setUserRates] = useState<{ [username: string]: number }>({});
     const usernames = Array.from(
     new Set(filteredByDateRange.map((e) => e.username || e.createdBy))
   );
-// useEffect(() => {
-// const fetchAllRates = async () => {
-//   const usersToFetch = fromAccountSummary
-//       ? [loggedInUser] // single user
-//       : usernames; // all usernames in the filtered list
-// console.log("usersToFetch",usersToFetch);
 
-//   const ratePromises = usersToFetch.map(async (user) => {
-//     try {
-//       const encodedDraw = encodeURIComponent(time);
-//         let url =`https://manu-netflix.onrender.com/rateMaster?user=${user}&draw=${encodedDraw}`
-//         const res = await fetch(url);
-//         const data = await res.json();
-//         const ratesArray = data?.rates || [];
-//           const ratesByType: { [label: string]: number } = {};
-//       ratesArray.forEach((r) => {
-//         ratesByType[r.label] = r.rate;
-//       });
-//         console.log("urlllllllllllll",url);
-//         console.log("urlllllllllllll",data);
-//         console.log("urlllllllllllll",ratesByType);
-
-//       return { user, rates: ratesByType };
-//     } catch {
-//       return { user, rates: {} };
-//     }
-//   });
-
-//   const results = await Promise.all(ratePromises);
-//   const userRates: { [username: string]: { [label: string]: number } } = {};
-//   results.forEach((r) => (userRates[r.user] = r.rates));
-//   setUserRates(userRates);
-// };
-
-
-//   if (usernames.length > 0) fetchAllRates();
-// }, [usernames, time]);
-
-useEffect(() => {
-  const fetchAllRates = async () => {
-    try {
-      console.log("ddddddddddddddddd",[loggedInUser]);
-      console.log("ddddddddddddddddd",usernames);
-      
-      let usersToFetch = fromAccountSummary
-        ? [loggedInUser] // only fetch admin rate
-        : usernames; // all users normally
-
-      const ratePromises = usersToFetch.map(async (user) => {
-        const encodedDraw = encodeURIComponent(time);
-        const url = `https://manu-netflix.onrender.com/rateMaster?user=${user}&draw=${encodedDraw}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        const ratesArray = data?.rates || [];
-        const ratesByType: { [label: string]: number } = {};
-        ratesArray.forEach((r) => {
-          ratesByType[r.label] = r.rate;
-        });
-        return ratesByType;
-      });
-
-      const results = await Promise.all(ratePromises);
-
-      let newUserRates: { [username: string]: { [label: string]: number } } = {};
-
-      if (fromAccountSummary) {
-        // Map the admin rate to all usernames
-        const adminRates = results[0] || {};
-        usernames.forEach((user) => {
-          newUserRates[user] = adminRates;
-        });
-      } else {
-        // Map each fetched rate to the corresponding username
-        usernames.forEach((user, i) => {
-          newUserRates[user] = results[i] || {};
-        });
-      }
-
-      setUserRates(newUserRates);
-      console.log("Final userRates", newUserRates);
-    } catch (err) {
-      console.error("Error fetching rates:", err);
-    }
-  };
-
-  if (usernames.length > 0) fetchAllRates();
-}, [usernames, time, fromAccountSummary, loggedInUser]);
-
-  // Filter by date range
-
-
-  // Extract usernames from entries
-
-
-  // Determine users to include (selected + all sub-users)
   const selectedHierarchyUsers =
     selectedUser === "All"
       ? usernames
@@ -202,13 +83,7 @@ useEffect(() => {
     const entries = filteredUsers.filter(
       (e) => (e.username || e.createdBy) === user
     );
-  //   const totalCount = entries.reduce((sum, e) => sum + (e.count || 0), 0);
-  //   const totalWinning = entries.reduce(
-  //     (sum, e) => sum + (e.winAmount || 0),
-  //     0
-  //   );
-  //    const userRate = userRates[user] || 10; // use dynamic rate
-  // const totalSales = totalCount * userRate;
+
     const totalSales = entries.reduce((sum, entry) => {
     const betType = extractBetType(entry.type);
     const rate = userRates[user]?.[betType] ?? 10;
@@ -263,7 +138,7 @@ useEffect(() => {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.text }]}>
-       {fromAccountSummary?"Account":'User-wise'} Summary
+        {fromAccountSummary ? "Account" : "User-wise"} Summary
       </Text>
 
       {/* User Filter */}
@@ -291,118 +166,105 @@ useEffect(() => {
         </View>
       )}
 
-      <ScrollView horizontal>
-        <View>
-          {/* Table Header */}
-          <View style={[styles.tableRow, { backgroundColor: colors.header }]}>
-            <Text style={[styles.cell, { width: 120, color: colors.text }]}>
-              User
-            </Text>
-            <Text style={[styles.cell, { width: 120, color: colors.text }]}>
-              Total Entries
-            </Text>
-            <Text style={[styles.cell, { width: 120, color: colors.text }]}>
-              Total Sales
-            </Text>
-            <Text style={[styles.cell, { width: 120, color: colors.text }]}>
-              Winning
-            </Text>
-            <Text style={[styles.cell, { width: 120, color: colors.text }]}>
-             Net Pay
-            </Text>
+      {/* Table */}
+      <View>
+        {/* Header */}
+        <View style={styles.tableRow}>
+          <View style={styles.cell}>
+            <Text style={styles.cellText}>User</Text>
           </View>
+          <View style={styles.cell}>
+            <Text style={styles.cellText}>Total Sales</Text>
+          </View>
+          <View style={styles.cell}>
+            <Text style={styles.cellText}>Winning</Text>
+          </View>
+          <View style={[styles.cell, styles.lastCell]}>
+            <Text style={styles.cellText}>Net Pay</Text>
+          </View>
+        </View>
 
-          {/* Table Rows */}
-          {userSummary.map((user, index) => (
-            <View
-              key={index}
-              style={[
-                styles.tableRow,
-                {
-                  backgroundColor:
-                    index % 2 === 0 ? colors.card : colors.altRow,
-                  borderLeftWidth: user.totalWinning > 0 ? 4 : 0,
-                  borderLeftColor:
-                    user.totalWinning > 0 ? colors.winningBorder : "transparent",
-                },
-              ]}
-            >
-              <Text style={[styles.cell, { width: 120, color: colors.text }]}>
-                {user.user}
-              </Text>
-              <Text style={[styles.cell, { width: 120, color: colors.text }]}>
-                {user.totalEntries}
-              </Text>
-              <Text style={[styles.cell, { width: 120, color: colors.text }]}>
-                ₹{user.totalSales}
-              </Text>
-              <Text
-                style={[
-                  styles.cell,
-                  {
-                    width: 120,
-                    color:
-                      user.totalWinning > 0 ? colors.positive : colors.faded,
-                  },
-                ]}
-              >
-                ₹{user.totalWinning}
-              </Text>
-              <Text
-                style={[
-                  styles.cell,
-                  {
-                    width: 120,
-                    color:
-                      user.netPay >= 0 ? colors.positive : colors.negative,
-                  },
-                ]}
-              >
-                ₹{user.netPay}
-              </Text>
-            </View>
-          ))}
-
-          {/* Footer Row */}
+        {/* Rows */}
+        {userSummary.map((user, index) => (
           <View
+            key={index}
             style={[
               styles.tableRow,
               {
-                backgroundColor: colors.footer,
-                borderTopWidth: 2,
-                borderTopColor: colors.border,
+                backgroundColor:
+                  index % 2 === 0 ? colors.card : colors.altRow,
+                borderLeftColor:
+                  user.totalWinning > 0
+                    ? colors.winningBorder
+                    : "transparent",
               },
             ]}
           >
-            <Text style={[styles.cell, { width: 120, color: colors.text }]}>
-              Total
-            </Text>
-            <Text style={[styles.cell, { width: 120, color: colors.text }]}>
-              {footerTotals.entries}
-            </Text>
-            <Text style={[styles.cell, { width: 120, color: colors.text }]}>
-              ₹{footerTotals.sales}
-            </Text>
-            <Text style={[styles.cell, { width: 120, color: colors.text }]}>
-              ₹{footerTotals.winning}
-            </Text>
-            <Text
-              style={[
-                styles.cell,
-                {
-                  width: 120,
+            <View style={styles.cell}>
+              <Text style={{ color: colors.text }}>{user.user}</Text>
+            </View>
+            <View style={styles.cell}>
+              <Text style={{ color: colors.text }}>{user.totalSales}</Text>
+            </View>
+            <View style={styles.cell}>
+              <Text
+                style={{
                   color:
-                    footerTotals.netPay >= 0
+                    user.totalWinning > 0
                       ? colors.positive
-                      : colors.negative,
-                },
-              ]}
+                      : colors.faded,
+                }}
+              >
+                {user.totalWinning}
+              </Text>
+            </View>
+            <View style={[styles.cell, styles.lastCell]}>
+              <Text
+                style={{
+                  color:
+                    user.netPay >= 0 ? colors.positive : colors.negative,
+                }}
+              >
+                {user.netPay}
+              </Text>
+            </View>
+          </View>
+        ))}
+
+        {/* Footer */}
+        <View
+          style={[
+            styles.tableRow,
+            {
+              backgroundColor: colors.footer,
+              borderTopWidth: 2,
+              borderTopColor: colors.border,
+            },
+          ]}
+        >
+          <View style={styles.cell}>
+            <Text style={{ color: colors.text }}>Total</Text>
+          </View>
+          <View style={styles.cell}>
+            <Text style={{ color: colors.text }}>₹{footerTotals.sales}</Text>
+          </View>
+          <View style={styles.cell}>
+            <Text style={{ color: colors.text }}>₹{footerTotals.winning}</Text>
+          </View>
+          <View style={[styles.cell, styles.lastCell]}>
+            <Text
+              style={{
+                color:
+                  footerTotals.netPay >= 0
+                    ? colors.positive
+                    : colors.negative,
+              }}
             >
-              ₹{footerTotals.netPay}
+              {footerTotals.netPay}
             </Text>
           </View>
         </View>
-      </ScrollView>
+      </View>
 
       {/* Confetti */}
       {totalWinningAmount > 0 &&
@@ -419,27 +281,58 @@ useEffect(() => {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 10 },
+  container: {
+    flex: 1,
+    justifyContent: "flex-start",
+  },
   title: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 12,
+    marginBottom: 0,
   },
   filterBox: {
-    marginHorizontal: 8,
-    marginBottom: 10,
-    padding: 8,
-    borderRadius: 8,
+    marginHorizontal: 0,
+    marginBottom: 0,
+    padding: 2,
+    borderRadius: 4,
   },
-  filterLabel: { fontWeight: "600", marginBottom: 4 },
-  picker: { height: 50, width: 200, justifyContent: "center" },
-  tableRow: { flexDirection: "row", paddingVertical: 12, paddingHorizontal: 4 },
-  cell: {
+  filterLabel: {
     fontWeight: "600",
-    fontSize: 14,
-    paddingHorizontal: 4,
-    textAlign: "right",
+    marginBottom: 0,
+    fontSize: 12,
   },
-  confetti: { position: "absolute", fontSize: 24, zIndex: 1000 },
+  picker: {
+    height: 34,
+    width: 120,
+    margin: 0,
+    padding: 0,
+  },
+  tableRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderColor: "black",
+    backgroundColor: 'green'
+  },
+  cell: {
+    flex: 1,
+    borderRightWidth: 1,
+    borderColor: "black",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 9,
+  },
+  lastCell: {
+    borderRightWidth: 0,
+  },
+  cellText: {
+    fontWeight: "500",
+    fontSize: 14,
+    textAlign: "center",
+  },
+  confetti: {
+    position: "absolute",
+    fontSize: 16,
+    zIndex: 1000,
+  },
 });

@@ -1,8 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
@@ -11,8 +10,8 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import axios from "axios";
 import { Picker } from "@react-native-picker/picker";
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList, Report } from "./types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 type Props = NativeStackScreenProps<RootStackParamList, "WinningReport">;
 
@@ -30,133 +29,84 @@ function isDoubleNumber(numStr: string) {
   return new Set(numStr.split("")).size === 2;
 }
 
-function processReport(sales: any[], results: Record<string, any>): Report {
-  if (!results || typeof results !== "object") {
-    console.warn("processReport: invalid results object", results);
-    return { grandTotal: 0, bills: [] };
-  }
-  if (!results["1"]) {
-    console.warn("processReport: missing key '1' in results", results);
+function processReport(sales: any[], results: Record<string, any>, userSchemeMap: Map<string, string>): Report {
+  if (!results || typeof results !== "object" || !results["1"]) {
     return { grandTotal: 0, bills: [] };
   }
 
   const firstPrize = results["1"];
   const others = Array.isArray(results.others) ? results.others : [];
-  const allPrizes = [
-    results["1"],
-    results["2"],
-    results["3"],
-    results["4"],
-    results["5"],
-    ...others,
-  ].filter(Boolean);
+
+  const prizeList = [results["1"], results["2"], results["3"], results["4"], results["5"], ...others].filter(Boolean);
+  const prizeMap = new Map<string, number>();
+  prizeList.forEach((num, idx) => prizeMap.set(num, idx + 1));
+
+  const firstPrizeSorted = firstPrize.split("").sort().join("");
+  const isFirstPrizeDouble = isDoubleNumber(firstPrize);
+
+  const firstA = firstPrize[0];
+  const firstB = firstPrize[1];
+  const firstC = firstPrize[2];
+  const firstAB = firstA + firstB;
+  const firstBC = firstB + firstC;
+  const firstAC = firstA + firstC;
 
   const report: Record<string, any> = {};
 
   for (const sale of sales) {
-    if (
-      !sale.number ||
-      !sale.count ||
-      !sale.type ||
-      !sale.billNo ||
-      !sale.createdBy
-    ) {
-      console.warn("Skipping invalid sale entry:", sale);
-      continue;
-    }
+    const { number: num, count, type, billNo, createdBy } = sale;
+    if (!num || !count || !type || !billNo || !createdBy) continue;
 
-    const rawType = (sale.type || "").toUpperCase();
-    const baseType = rawType.includes("-")
-      ? rawType.split("-").pop()!
-      : rawType;
+    const scheme = userSchemeMap.get(createdBy) || "N/A";
+    const baseType = type.toUpperCase().includes("-") ? type.toUpperCase().split("-").pop()! : type.toUpperCase();
 
-    const num = sale.number;
-    const count = sale.count;
     let winAmount = 0;
     let winType = "";
 
-    if (baseType === "SUPER") {
-      let prizePos = allPrizes.indexOf(num) + 1;
-      if (prizePos > 0) {
-        winAmount = (payouts.SUPER[prizePos] || payouts.SUPER.other) * count;
-        winType = `SUPER ${
-          prizePos <= 5 ? prizePos + " prize" : "other prize"
-        }`;
-      }
-    }
-
-    if (baseType === "BOX") {
+    const pos = prizeMap.get(num);
+    if (baseType === "SUPER" && pos) {
+      winAmount = (payouts.SUPER[pos] || payouts.SUPER.other) * count;
+      winType = `SUPER ${pos <= 5 ? pos + " prize" : "other prize"}`;
+    } else if (baseType === "BOX") {
       if (num === firstPrize) {
-        if (isDoubleNumber(firstPrize)) {
-          winAmount = payouts.BOX.double.perfect * count;
-          winType = "BOX perfect double";
-        } else {
-          winAmount = payouts.BOX.normal.perfect * count;
-          winType = "BOX perfect normal";
-        }
-      } else if (
-        num.split("").sort().join("") === firstPrize.split("").sort().join("")
-      ) {
-        if (isDoubleNumber(firstPrize)) {
-          winAmount = payouts.BOX.double.permutation * count;
-          winType = "BOX permutation double";
-        } else {
-          winAmount = payouts.BOX.normal.permutation * count;
-          winType = "BOX permutation normal";
-        }
+        winAmount = (isFirstPrizeDouble ? payouts.BOX.double.perfect : payouts.BOX.normal.perfect) * count;
+        winType = `BOX perfect ${isFirstPrizeDouble ? "double" : "normal"}`;
+      } else if (num.split("").sort().join("") === firstPrizeSorted) {
+        winAmount = (isFirstPrizeDouble ? payouts.BOX.double.permutation : payouts.BOX.normal.permutation) * count;
+        winType = `BOX permutation ${isFirstPrizeDouble ? "double" : "normal"}`;
       }
-    }
-
-    if (baseType === "AB" && num === firstPrize.slice(0, 2)) {
+    } else if (baseType === "AB" && num === firstAB) {
       winAmount = payouts.AB_BC_AC * count;
       winType = "AB match";
-    }
-    if (baseType === "BC" && num === firstPrize.slice(1, 3)) {
+    } else if (baseType === "BC" && num === firstBC) {
       winAmount = payouts.AB_BC_AC * count;
       winType = "BC match";
-    }
-    if (baseType === "AC" && num === firstPrize[0] + firstPrize[2]) {
+    } else if (baseType === "AC" && num === firstAC) {
       winAmount = payouts.AB_BC_AC * count;
       winType = "AC match";
-    }
-
-    if (baseType === "A" && num === firstPrize[0]) {
+    } else if (baseType === "A" && num === firstA) {
       winAmount = payouts.A_B_C * count;
       winType = "A match";
-    }
-    if (baseType === "B" && num === firstPrize[1]) {
+    } else if (baseType === "B" && num === firstB) {
       winAmount = payouts.A_B_C * count;
       winType = "B match";
-    }
-    if (baseType === "C" && num === firstPrize[2]) {
+    } else if (baseType === "C" && num === firstC) {
       winAmount = payouts.A_B_C * count;
       winType = "C match";
     }
 
     if (winAmount > 0) {
-      if (!report[sale.billNo]) {
-        report[sale.billNo] = {
-          createdBy: sale.createdBy,
-          billNo: sale.billNo,
-          winnings: [],
-          total: 0,
-        };
+      if (!report[billNo]) {
+        report[billNo] = { createdBy, billNo, scheme, winnings: [], total: 0 };
       }
-      report[sale.billNo].winnings.push({
-        number: num,
-        type: baseType,
-        count,
-        winType,
-        winAmount,
-      });
-      report[sale.billNo].total += winAmount;
+      report[billNo].winnings.push({ number: num, type: baseType, count, winType, winAmount });
+      report[billNo].total += winAmount;
     }
   }
 
-  const finalReport = Object.values(report);
-  const grandTotal = finalReport.reduce((sum, b) => sum + b.total, 0);
-
-  return { grandTotal, bills: finalReport };
+  const bills = Object.values(report);
+  const grandTotal = bills.reduce((sum, b) => sum + b.total, 0);
+  return { grandTotal, bills };
 }
 
 function getDatesBetween(start: Date, end: Date) {
@@ -175,9 +125,7 @@ function formatDate(date: Date) {
 
 function mergeReports(r1: Report, r2: Report): Report {
   const map = new Map<string, typeof r1.bills[0]>();
-  for (const bill of r1.bills) {
-    map.set(bill.billNo.toString(), { ...bill });
-  }
+  for (const bill of r1.bills) map.set(bill.billNo.toString(), { ...bill });
   for (const bill of r2.bills) {
     const key = bill.billNo.toString();
     if (map.has(key)) {
@@ -193,38 +141,93 @@ function mergeReports(r1: Report, r2: Report): Report {
   return { grandTotal, bills };
 }
 
+function getDescendants(username: string, users: { username: string; createdBy: string }[]): string[] {
+  let descendants: string[] = [];
+  const directChildren = users.filter((u) => u.createdBy === username).map((u) => u.username);
+  descendants.push(...directChildren);
+  directChildren.forEach((child) => {
+    descendants.push(...getDescendants(child, users));
+  });
+  return descendants;
+}
+
 export default function WinningReportScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
-  const [report, setReport] = useState<Report | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
   const [fromDate, setFromDate] = useState(new Date());
   const [toDate, setToDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState<null | "from" | "to">(null);
-
   const [selectedDraw, setSelectedDraw] = useState("DEAR 8 PM");
+  const [allUsers, setAllUsers] = useState<{ username: string; createdBy: string; scheme?: string }[]>([]);
+  const [loggedInUser, setLoggedInUser] = useState<string>("");
+  const [usersForPicker, setUsersForPicker] = useState<string[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<string>("");
 
-  async function fetchData() {
+  useEffect(() => {
+    async function loadUsers() {
+      try {
+        const storedUser = await AsyncStorage.getItem("username");
+        if (!storedUser) {
+          setErrorMsg("No logged-in user found");
+          return;
+        }
+        setLoggedInUser(storedUser);
+        const response = await fetch("https://www.muralibajaj.site/users");
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setAllUsers(data);
+          const directChildren = data.filter((u) => u.createdBy === storedUser).map((u) => u.username);
+          setUsersForPicker([storedUser, ...directChildren]);
+        }
+      } catch (e) {
+        console.error("Failed to load users", e);
+        setErrorMsg("Failed to load users");
+      }
+    }
+    loadUsers();
+  }, []);
+
+  async function fetchAndNavigate() {
     if (toDate < fromDate) {
       setErrorMsg("To date must be after or equal to From date");
       return;
     }
 
-    try {
-      setLoading(true);
-      setErrorMsg(null);
-      setReport(null);
+    setLoading(true);
+    setErrorMsg(null);
 
-      const entriesRes = await axios.get(
-        "https://manu-netflix.onrender.com/entries",
-        {
-          params: {
-            fromDate: formatDate(fromDate),
-            toDate: formatDate(toDate),
-            timeLabel: selectedDraw,
-          },
-        }
-      );
+    try {
+      let createdByList: string[] = [];
+      if (!selectedAgent) {
+        createdByList = [loggedInUser, ...getDescendants(loggedInUser, allUsers)];
+      } else {
+        createdByList = [selectedAgent, ...getDescendants(selectedAgent, allUsers)];
+      }
+      const createdBySet = new Set(createdByList);
+
+      const entriesRes = await axios.get("https://www.muralibajaj.site/entries", {
+        params: { fromDate: formatDate(fromDate), toDate: formatDate(toDate), timeLabel: selectedDraw },
+      });
+
+      if (!Array.isArray(entriesRes.data)) {
+        setErrorMsg("Invalid entries data");
+        setLoading(false);
+        return;
+      }
+
+      // Filter once and group by date for O(1) access later
+      const entriesByDate: Record<string, any[]> = {};
+      for (const e of entriesRes.data) {
+        if (!createdBySet.has(e.createdBy)) continue;
+        const dateStr = formatDate(new Date(e.createdAt));
+        if (!entriesByDate[dateStr]) entriesByDate[dateStr] = [];
+        entriesByDate[dateStr].push(e);
+      }
+
+      const userSchemeMap = new Map<string, string>();
+      allUsers.forEach((u) => {
+        if (u.username && u.scheme) userSchemeMap.set(u.username, u.scheme);
+      });
 
       const allDates = getDatesBetween(fromDate, toDate);
       let combinedReport: Report = { grandTotal: 0, bills: [] };
@@ -232,49 +235,30 @@ export default function WinningReportScreen({ navigation }: Props) {
 
       for (const date of allDates) {
         const formattedDate = formatDate(date);
-
         let resultsRes;
         try {
-          resultsRes = await axios.get(
-            "https://manu-netflix.onrender.com/getResult",
-            { params: { date: formattedDate, time: selectedDraw } }
-          );
+          resultsRes = await axios.get("https://www.muralibajaj.site/getResult", {
+            params: { date: formattedDate, time: selectedDraw },
+          });
         } catch (err: any) {
-          if (err.response && err.response.status === 404) {
-            console.log(`No result found for ${formattedDate}, skipping.`);
-            continue;
-          } else {
-            throw err;
-          }
+          if (err.response?.status === 404) continue;
+          else throw err;
         }
 
-        const resultData = Array.isArray(resultsRes.data)
-          ? resultsRes.data[0]
-          : resultsRes.data;
-
-        const salesForDate = entriesRes.data.filter((e: any) => {
-          const created = new Date(e.createdAt);
-          return (
-            created >= new Date(formattedDate + "T00:00:00") &&
-            created <= new Date(formattedDate + "T23:59:59")
-          );
-        });
-
-        const dayReport = processReport(salesForDate, resultData);
+        const resultData = Array.isArray(resultsRes.data) ? resultsRes.data[0] : resultsRes.data;
+        const salesForDate = entriesByDate[formattedDate] || [];
+        const dayReport = processReport(salesForDate, resultData, userSchemeMap);
 
         if (dayReport.bills.length > 0) anyResultsFound = true;
-
         combinedReport = mergeReports(combinedReport, dayReport);
       }
 
       if (!anyResultsFound) {
         setErrorMsg("No results found for the selected date range.");
-        setReport(null);
       } else {
-        setReport(combinedReport);
+        navigation.navigate("winningdetailed", { report: combinedReport });
       }
     } catch (err: any) {
-      console.error("Error fetching report:", err.message);
       setErrorMsg("Failed to fetch report: " + err.message);
     } finally {
       setLoading(false);
@@ -292,21 +276,30 @@ export default function WinningReportScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Winning Report</Text>
+      <View style={styles.fieldGroup}>
+        <Text style={styles.label}>Select Draw Time</Text>
+        <Picker selectedValue={selectedDraw} onValueChange={setSelectedDraw} style={styles.picker}>
+          <Picker.Item label="DEAR 1 PM" value="DEAR 1 PM" />
+          <Picker.Item label="KERALA 3 PM" value="KERALA 3 PM" />
+          <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" />
+          <Picker.Item label="DEAR 8 PM" value="DEAR 8 PM" />
+          <Picker.Item label="ALL" value="ALL" />
+        </Picker>
+      </View>
 
       <View style={styles.dateRow}>
-        <TouchableOpacity
-          style={styles.dateBtn}
-          onPress={() => setShowPicker("from")}
-        >
-          <Text>From: {formatDate(fromDate)}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.dateBtn}
-          onPress={() => setShowPicker("to")}
-        >
-          <Text>To: {formatDate(toDate)}</Text>
-        </TouchableOpacity>
+        <View style={styles.fieldGroupHalf}>
+          <Text style={styles.label}>From Date</Text>
+          <TouchableOpacity style={styles.dateBtn} onPress={() => setShowPicker("from")}>
+            <Text>{formatDate(fromDate)}</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.fieldGroupHalf}>
+          <Text style={styles.label}>To Date</Text>
+          <TouchableOpacity style={styles.dateBtn} onPress={() => setShowPicker("to")}>
+            <Text>{formatDate(toDate)}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {showPicker && (
@@ -319,15 +312,18 @@ export default function WinningReportScreen({ navigation }: Props) {
         />
       )}
 
-      <Picker selectedValue={selectedDraw} onValueChange={setSelectedDraw}>
-        <Picker.Item label="DEAR 1 PM" value="DEAR 1 PM" />
-        <Picker.Item label="DEAR 3 PM" value="DEAR 3 PM" />
-        <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" />
-        <Picker.Item label="DEAR 8 PM" value="DEAR 8 PM" />
-      </Picker>
+      <View style={styles.fieldGroup}>
+        <Text style={styles.label}>Select Agent</Text>
+        <Picker selectedValue={selectedAgent} onValueChange={setSelectedAgent} style={styles.picker}>
+          <Picker.Item label="All Agents" value="" />
+          {usersForPicker.map((user) => (
+            <Picker.Item key={user} label={user} value={user} />
+          ))}
+        </Picker>
+      </View>
 
-      <TouchableOpacity style={styles.fetchBtn} onPress={fetchData}>
-        <Text style={{ color: "#fff" }}>Fetch Report</Text>
+      <TouchableOpacity style={[styles.generateBtn, loading && { opacity: 0.6 }]} onPress={fetchAndNavigate} disabled={loading}>
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.generateBtnText}>Generate Report</Text>}
       </TouchableOpacity>
 
       {errorMsg && (
@@ -335,82 +331,21 @@ export default function WinningReportScreen({ navigation }: Props) {
           <Text style={styles.errorText}>{errorMsg}</Text>
         </View>
       )}
-
-      {loading && (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#0000ff" />
-          <Text>Loading report...</Text>
-        </View>
-      )}
-
-      {!loading && report && (
-        <>
-          <TouchableOpacity
-            style={[styles.fetchBtn, { backgroundColor: "green" }]}
-            onPress={() => navigation.navigate("winningdetailed", { report })}
-          >
-            <Text style={{ color: "#fff" }}>Generate Detailed Report</Text>
-          </TouchableOpacity>
-
-          <ScrollView>
-            <Text style={styles.total}>Grand Total: ₹{report.grandTotal}</Text>
-            {report.bills.map((bill, index) => (
-              <View key={index} style={styles.bill}>
-                <Text style={styles.billHeader}>
-                  Bill #{bill.billNo} - Agent: {bill.createdBy}
-                </Text>
-                {bill.winnings.map((w: any, i: number) => (
-                  <Text key={i} style={styles.winningLine}>
-                    {w.number} ({w.type}) x{w.count} → ₹{w.winAmount} [{w.winType}]
-                  </Text>
-                ))}
-                <Text style={styles.billTotal}>Total: ₹{bill.total}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </>
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 10, backgroundColor: "#fff" },
-  header: { fontSize: 22, fontWeight: "bold", marginBottom: 10 },
-  dateRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
-  dateBtn: {
-    padding: 10,
-    backgroundColor: "#ddd",
-    borderRadius: 5,
-    width: "48%",
-    alignItems: "center",
-  },
-  fetchBtn: {
-    padding: 12,
-    backgroundColor: "blue",
-    alignItems: "center",
-    borderRadius: 5,
-    marginBottom: 10,
-  },
-  total: { fontSize: 18, fontWeight: "600", marginBottom: 15 },
-  bill: {
-    padding: 10,
-    marginBottom: 15,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 8,
-  },
-  billHeader: { fontSize: 16, fontWeight: "bold" },
-  winningLine: { fontSize: 14, marginVertical: 2 },
-  billTotal: { fontWeight: "bold", marginTop: 5 },
-  center: { alignItems: "center", justifyContent: "center" },
-  errorContainer: {
-    backgroundColor: "#f8d7da",
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
-  },
-  errorText: {
-    color: "#721c24",
-    fontWeight: "600",
-  },
+  container: { flex: 1, padding: 16, backgroundColor: "#fff" },
+  header: { fontSize: 22, fontWeight: "bold", marginBottom: 20 },
+  fieldGroup: { marginBottom: 16 },
+  fieldGroupHalf: { flex: 1, marginBottom: 16, marginRight: 8 },
+  label: { marginBottom: 6, fontSize: 14, fontWeight: "600", color: "#333" },
+  dateRow: { flexDirection: "row", justifyContent: "space-between" },
+  dateBtn: { padding: 12, backgroundColor: "#ddd", borderRadius: 5, alignItems: "center" },
+  picker: { backgroundColor: "#f4f4f4", borderRadius: 5 , color:'black'},
+  generateBtn: { padding: 14, backgroundColor: "#e73030c9", alignItems: "center", borderRadius: 5, marginVertical: 20 },
+  generateBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  errorContainer: { backgroundColor: "#f8d7da", padding: 10, borderRadius: 5, marginTop: 10 },
+  errorText: { color: "#721c24", fontWeight: "600" },
 });
