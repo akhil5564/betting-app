@@ -39,6 +39,28 @@ import MORE from './src/screens/MORE'
 import TimeBlockSettingsScreen from './src/screens/TimeBlockSettingsScreen';
 import NetPaySummary from './src/screens/NetPaySummary';
 
+// Define the WinningReport interface
+interface WinningReport {
+  fromDate: string;
+  toDate: string;
+  time: string;
+  agent: string;
+  grandTotal: number;
+  bills: Array<{
+    billNo: string;
+    createdBy: string;
+    scheme: string;
+    winnings?: Array<{
+      number: string;
+      type: string;
+      winType?: string;
+      count: number;
+      winAmount: number;
+    }>;
+  }>;
+  usersList: string[];
+}
+
 export type RootStackParamList = {
   Splash: undefined;
   Login: undefined;
@@ -68,9 +90,21 @@ export type RootStackParamList = {
   TicketLimit: undefined;
   ViewBill: undefined;
   NumberWiseReportResult: undefined;
-  winningdetailed: undefined;
+  winningdetailed: { report: WinningReport };
   MORE: undefined;
   Schemes: undefined;
+  netdetailed: {
+    fromDate: string;
+    toDate: string;
+    matchedEntries: any[];
+    usersList: string[];
+    loggedInUser: any;
+    selectedTime?: string;
+    time: string;
+    fromAccountSummary: boolean;
+    userRates: { [username: string]: any };
+  };
+  timeset: undefined;
 };
 
 
