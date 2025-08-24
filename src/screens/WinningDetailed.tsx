@@ -1,14 +1,30 @@
 import React, { Component } from "react";
 import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { RootStackParamList, Bill, WinEntry } from "./types";
+import { RootStackParamList } from "../../App";
 
-type Props = NativeStackScreenProps<RootStackParamList, "WinningDetailed">;
+type Props = NativeStackScreenProps<RootStackParamList, "winningdetailed">;
 type State = {};
+
+// Define the types locally since we're importing from App.tsx
+interface WinEntry {
+  number: string;
+  type: string;
+  winType?: string;
+  count: number;
+  winAmount: number;
+}
+
+interface Bill {
+  billNo: string;
+  createdBy: string;
+  scheme: string;
+  winnings?: WinEntry[];
+}
 
 export default class WinningDetailed extends Component<Props, State> {
   calcSuperAmount = (win: WinEntry, scheme: string) => {
-    const payoutTables = {
+    const payoutTables: { [key: string]: any } = {
       "1": {
         super: { 1: 400, 2: 50, 3: 30, 4: 30, 5: 20, other: 10 },
         box: {
@@ -25,7 +41,14 @@ export default class WinningDetailed extends Component<Props, State> {
         },
         ab_bc_ac: 15,
       },
-      "3": { super: {}, box: { normal: { perfect: 0, permutation: 0 }, double: { perfect: 0, permutation: 0 } }, ab_bc_ac: 0 },
+      "3": {
+        super: {},
+        box: {
+          normal: { perfect: 0, permutation: 0 },
+          double: { perfect: 0, permutation: 0 },
+        },
+        ab_bc_ac: 0,
+      },
     };
 
     const schemeKey = String(scheme).replace(/[^0-9]/g, "") || "1";
@@ -38,14 +61,14 @@ export default class WinningDetailed extends Component<Props, State> {
 
     if (win.type === "SUPER") {
       if (schemeKey === "3") return 0;
-      const pos = getPrizePosition(win.winType);
+      const pos = getPrizePosition(win.winType || "");
       if (pos && payouts.super[pos]) return payouts.super[pos] * win.count;
       return (payouts.super.other || 0) * win.count;
     }
 
     if (win.type === "BOX") {
-      const isPerfect = win.winType.includes("perfect");
-      const isDouble = win.winType.includes("double");
+      const isPerfect = (win.winType || "").includes("perfect");
+      const isDouble = (win.winType || "").includes("double");
       if (isDouble) {
         return isPerfect
           ? payouts.box.double.perfect * win.count
@@ -67,47 +90,23 @@ export default class WinningDetailed extends Component<Props, State> {
     const superAmount = this.calcSuperAmount(win, scheme);
     const total = superAmount + win.winAmount;
     const isEven = index % 2 === 0;
-
+  
     return (
-      <View
-        key={index}
-        style={[
-          styles.winEntryRow,
-          { backgroundColor: isEven ? "#f9f9f9" : "#ffffff" },
-        ]}
-      >
+      <View key={index} style={[styles.winEntryRow, { backgroundColor: isEven ? "#f9f9f9" : "#fff" }]}>
         <Text style={styles.winNumber}>{win.number}</Text>
-        <Text style={styles.winType}>{win.type}</Text>
+        <Text style={styles.winType}>{win.winType || win.type}</Text>
         <Text style={styles.winCount}>{win.count}</Text>
-        <Text
-          style={[
-            styles.winAmount,
-            { color: win.winAmount >= 0 ? "green" : "red" },
-          ]}
-        >
+        <Text style={[styles.winAmount, { color: win.winAmount >= 0 ? "green" : "red" }]}>
           ₹{win.winAmount}
         </Text>
-
-        <Text
-          style={[
-            styles.winAmount,
-            { color: superAmount >= 0 ? "green" : "red" },
-          ]}
-        >
+        <Text style={[styles.winAmount, { color: superAmount >= 0 ? "green" : "red" }]}>
           {String(scheme).replace(/[^0-9]/g, "") === "3" ? "₹0" : `₹${superAmount}`}
         </Text>
-
-        <Text
-          style={[
-            styles.winAmount,
-            { color: total >= 0 ? "green" : "red" },
-          ]}
-        >
-          ₹{total}
-        </Text>
+        <Text style={[styles.winAmount, { color: total >= 0 ? "green" : "red" }]}>₹{total}</Text>
       </View>
     );
   };
+  
 
   renderBill = (bill: Bill, index: number) => {
     return (
@@ -129,7 +128,7 @@ export default class WinningDetailed extends Component<Props, State> {
           <Text style={styles.winAmount}>Total</Text>
         </View>
 
-        {bill.winnings.map((win, idx) =>
+        {bill.winnings?.map((win: WinEntry, idx: number) =>
           this.renderWinEntry(win, idx, bill.scheme)
         )}
       </View>
@@ -137,7 +136,9 @@ export default class WinningDetailed extends Component<Props, State> {
   };
 
   render() {
-    const { report } = this.props.route.params;
+    const { report } = this.props.route.params || {};
+    const bills = report?.bills || [];
+    const grandTotal = report?.grandTotal || 0;
 
     if (!report) {
       return (
@@ -150,18 +151,16 @@ export default class WinningDetailed extends Component<Props, State> {
     return (
       <ScrollView style={styles.container}>
         <View style={styles.totalContainer}>
-          <Text style={styles.grandTotal}>
-            Grand Total: ₹{report.grandTotal}
-          </Text>
+          <Text style={styles.grandTotal}>Grand Total: ₹{grandTotal}</Text>
         </View>
-        {report.bills.map(this.renderBill)}
+        {bills.map(this.renderBill)}
       </ScrollView>
     );
   }
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f2f2f2", },
+  container: { flex: 1, backgroundColor: "#f2f2f2" },
 
   totalContainer: {
     backgroundColor: "#e6ffe6",

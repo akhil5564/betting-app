@@ -20,17 +20,21 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp, NavigationProp} from '@react-navigation/native';
 import { TextInput as RNTextInput, } from 'react-native';
+import { Domain } from './NetPayScreen';
 const { width, height } = Dimensions.get('window');
 
 type Entry = {
   number: string;
   count: number;
-  type:keyof typeof rates;
+  type: string;
+  timeLabel?: string;
 };
 
 type RootStackParamList = {
   Add: { pastedText?: string };
   Paste: undefined;
+  ViewBill: { billId: string };
+  Main: undefined;
 };
 
 
@@ -73,7 +77,7 @@ const [ticketLimits, setTicketLimits] = useState(null);
 const numberRefs = useRef<TextInput[]>([]);
 
 const focusFirstEmptyNumber = () => {
-  const firstEmptyIndex = numbers.findIndex(n => n.trim() === '');
+  const firstEmptyIndex = entries.findIndex(e => e.number.trim() === '');
   if (firstEmptyIndex >= 0) {
     numberRefs.current[firstEmptyIndex]?.focus();
   }
@@ -109,6 +113,17 @@ const countInputRefRange = useRef<TextInput>(null);
     tripleOne: false,
   });
   const [entries, setEntries] = useState<Entry[]>([]);
+const [selectedDate, setSelectedDate] = useState(new Date());
+
+// Define missing variables
+const existingCounts: Record<string, number> = {};
+const drawBlockTimes: Record<string, string> = {
+  'LSK3': '15:00',
+  'D-1-': '13:00',
+  'D-6-': '18:00',
+  'D-8-': '20:00'
+};
+  
 const labelMap = ['SUPER', 'BOX', 'AB', 'BC', 'AC', 'A', 'B', 'C'];
 
   const toggleCheckbox = (key: string) => {
@@ -192,11 +207,11 @@ const isWithinAllowedTime = (code: string) => {
   }
 };
 
-useEffect(() => {
-  axios.get('https://manu-netflix.onrender.com/getticketLimit')
-    .then((res) => setTicketLimits(res.data))
-    .catch((err) => console.error('Error loading ticket limits:', err));
-}, []);
+// useEffect(() => {
+//   axios.get('https://manu-netflix.onrender.com/getticketLimit')
+//     .then((res) => setTicketLimits(res.data))
+//     .catch((err) => console.error('Error loading ticket limits:', err));
+// }, []);
 
 
 useEffect(() => {
@@ -208,8 +223,10 @@ useEffect(() => {
 
 
 useEffect(() => {
-  fetchAndShowRates();
-}, []);
+  if (loggedInUser) {
+    fetchAndShowRates(loggedInUser);
+  }
+}, [loggedInUser]);
 
   const handleClear = () => {
     setNumber('');
@@ -437,149 +454,180 @@ const checkAndFilterEntries = async () => {
 };
 
 
+// const handleSave = async () => {
+//   try {
+//     // Step 1: Get block/unblock time for draw
+//     const blockRes = await fetch(`https://manu-netflix.onrender.com/getBlockTime/${encodeURIComponent(selectedTime)}`);
+//     if (!blockRes.ok) throw new Error('Block time not set for this draw');
+//     const blockData = await blockRes.json();
+//     const { blockTime: blockTimeStr, unblockTime: unblockTimeStr } = blockData;
+//     if (!blockTimeStr || !unblockTimeStr) throw new Error('Block or unblock time missing');
+
+//     // Step 2: Check current time against block window
+//     const now = new Date();
+//     const todayStr = now.toISOString().split('T')[0];
+//     const [bh, bm] = blockTimeStr.split(':').map(Number);
+//     const [uh, um] = unblockTimeStr.split(':').map(Number);
+//     const blockTime = new Date(`${todayStr}T${String(bh).padStart(2, '0')}:${String(bm).padStart(2, '0')}:00`);
+//     const unblockTime = new Date(`${todayStr}T${String(uh).padStart(2, '0')}:${String(um).padStart(2, '0')}:00`);
+//     if (now >= blockTime && now < unblockTime) {
+//       alert('⛔ Entry time is blocked for this draw!');
+//       return;
+//     }
+
+//     // Step 3: Fetch ticket limits (group1, group2, group3)
+//     const limitsRes = await fetch('https://manu-netflix.onrender.com/getticketLimit');
+//     if (!limitsRes.ok) throw new Error('Failed to fetch ticket limits');
+//     const ticketLimits = await limitsRes.json();
+
+//     // Merge groups for easier access: { A: '1000', AB: '100', SUPER: '150', ... }
+//     const allLimits = {
+//       ...ticketLimits.group1,
+//       ...ticketLimits.group2,
+//       ...ticketLimits.group3,
+//     };
+
+//     // Step 4: Sum counts per [type-number] from new entries
+//     const newTotalByNumberType = {};
+//     entries.forEach((entry) => {
+//       const rawType = entry.type.replace(selectedCode, '').replace(/-/g, '').toUpperCase();
+//       const key = `${rawType}-${entry.number}`;
+//       newTotalByNumberType[key] = (newTotalByNumberType[key] || 0) + (entry.count || 1);
+//     });
+
+//     // Step 5: Fetch existing counts from backend
+//     const numbersToCheck = Object.keys(newTotalByNumberType).map(key => key); // include type-number key
+//     console.log('Fetching existing counts with keys:', numbersToCheck);
+
+//     const countRes = await fetch('https://manu-netflix.onrender.com/countByNumber', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({
+//         date: todayStr,
+//         timeLabel: selectedTime,
+//         keys: numbersToCheck, // send type-number keys to backend
+//       }),
+//     });
+
+//     if (!countRes.ok) {
+//       console.error('Failed to fetch counts:', countRes.status, countRes.statusText);
+//       alert('Failed to fetch counts');
+//       return;
+//     }
+
+//     const existingCounts = await countRes.json();
+//     console.log('Existing counts from backend:', existingCounts);
+
+//     // Step 6: Validate entries using limits + existing counts
+//     const totalSoFar = { ...existingCounts }; // keyed by type-number
+//     const validEntries = [];
+//     const exceededEntries = [];
+
+//     for (const entry of entries) {
+//       const count = entry.count || 1;
+//       const rawType = entry.type.replace(selectedCode, '').replace(/-/g, '').toUpperCase();
+//       const key = `${rawType}-${entry.number}`;
+//       const maxLimit = parseInt(allLimits[rawType] || '9999', 10);
+
+//       const currentTotal = totalSoFar[key] || 0;
+//       const allowedCount = maxLimit - currentTotal;
+
+//       console.log(`[VALIDATION] ${key}: Max=${maxLimit}, Current=${currentTotal}, Attempted=${count}, Allowed=${allowedCount}`);
+
+//       if (allowedCount <= 0) {
+//         exceededEntries.push({ key, attempted: count, limit: maxLimit, existing: currentTotal, added: 0 });
+//         continue;
+//       }
+
+//       if (count <= allowedCount) {
+//         validEntries.push(entry);
+//         totalSoFar[key] = currentTotal + count;
+//       } else {
+//         validEntries.push({ ...entry, count: allowedCount });
+//         totalSoFar[key] = currentTotal + allowedCount;
+//         exceededEntries.push({ key, attempted: count, limit: maxLimit, existing: currentTotal, added: allowedCount });
+//       }
+//     }
+
+//     if (validEntries.length === 0) {
+//       alert('⛔ All entries exceed the allowed limit for some numbers.');
+//       return;
+//     }
+//     if (exceededEntries.length > 0) {
+//       const exceededMsg = exceededEntries
+//         .map(e => `${e.key}: Limit ${e.limit}, Existing ${e.existing}, Attempted ${e.attempted}, Added ${e.added}`)
+//         .join('\n');
+//       alert(`⚠️ Some entries were partially or fully skipped due to limits:\n${exceededMsg}`);
+//     }
+
+//     // Step 7: Save valid entries
+//     const payload = {
+//       entries: validEntries,
+//       timeLabel: selectedTime,
+//       timeCode: selectedCode,
+//       selectedAgent: selection || loggedInUser,
+//       createdBy: selection || loggedInUser,
+//       toggleCount: toggleCount,
+//     };
+
+//     const controller = new AbortController();
+//     const timeoutId = setTimeout(() => controller.abort(), 20000);
+// console.log("sssssssssssssssssssssss1",payload);
+
+//     const saveRes = await fetch('https://manu-netflix.onrender.com/addEntries', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify(payload),
+//       signal: controller.signal,
+//     });
+
+//     clearTimeout(timeoutId);
+
+//     const saveData = await saveRes.json();
+//     if (saveRes.ok) {
+//       setBillNumber(saveData?.billNo || '000000');
+//       setSuccessModalVisible(true);
+//       setEntries([]);
+//     } else {
+//       alert('❌ Error saving: ' + (saveData?.message || 'Unknown error'));
+//     }
+
+//   } catch (err) {
+//     console.error('❌ Save error:', err.message || err);
+//     alert('❌ Network error. Please try again.');
+//   }
+// };
+
 const handleSave = async () => {
   try {
-    // Step 1: Get block/unblock time for draw
-    const blockRes = await fetch(`https://manu-netflix.onrender.com/getBlockTime/${encodeURIComponent(selectedTime)}`);
-    if (!blockRes.ok) throw new Error('Block time not set for this draw');
-    const blockData = await blockRes.json();
-    const { blockTime: blockTimeStr, unblockTime: unblockTimeStr } = blockData;
-    if (!blockTimeStr || !unblockTimeStr) throw new Error('Block or unblock time missing');
-
-    // Step 2: Check current time against block window
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    const [bh, bm] = blockTimeStr.split(':').map(Number);
-    const [uh, um] = unblockTimeStr.split(':').map(Number);
-    const blockTime = new Date(`${todayStr}T${String(bh).padStart(2, '0')}:${String(bm).padStart(2, '0')}:00`);
-    const unblockTime = new Date(`${todayStr}T${String(uh).padStart(2, '0')}:${String(um).padStart(2, '0')}:00`);
-    if (now >= blockTime && now < unblockTime) {
-      alert('⛔ Entry time is blocked for this draw!');
-      return;
-    }
-
-    // Step 3: Fetch ticket limits (group1, group2, group3)
-    const limitsRes = await fetch('https://manu-netflix.onrender.com/getticketLimit');
-    if (!limitsRes.ok) throw new Error('Failed to fetch ticket limits');
-    const ticketLimits = await limitsRes.json();
-
-    // Merge groups for easier access: { A: '1000', AB: '100', SUPER: '150', ... }
-    const allLimits = {
-      ...ticketLimits.group1,
-      ...ticketLimits.group2,
-      ...ticketLimits.group3,
-    };
-
-    // Step 4: Sum counts per [type-number] from new entries
-    const newTotalByNumberType = {};
-    entries.forEach((entry) => {
-      const rawType = entry.type.replace(selectedCode, '').replace(/-/g, '').toUpperCase();
-      const key = `${rawType}-${entry.number}`;
-      newTotalByNumberType[key] = (newTotalByNumberType[key] || 0) + (entry.count || 1);
-    });
-
-    // Step 5: Fetch existing counts from backend
-    const numbersToCheck = Object.keys(newTotalByNumberType).map(key => key); // include type-number key
-    console.log('Fetching existing counts with keys:', numbersToCheck);
-
-    const countRes = await fetch('https://manu-netflix.onrender.com/countByNumber', {
+    // const encodedLabel = encodeURIComponent(selectedTime);
+    // console.log("sdddddddddd",encodedLabel);
+    
+    const res = await fetch(`${Domain}/entries/saveValidated`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        date: todayStr,
-        timeLabel: selectedTime,
-        keys: numbersToCheck, // send type-number keys to backend
-      }),
+      body: JSON.stringify({ entries, selectedAgent: selection || loggedInUser, createdBy: selection || loggedInUser, timeLabel: selectedTime, timeCode: selectedCode, toggleCount }),
     });
 
-    if (!countRes.ok) {
-      console.error('Failed to fetch counts:', countRes.status, countRes.statusText);
-      alert('Failed to fetch counts');
+    const data = await res.json();
+    if (!res.ok) {
+      alert(`❌ ${data.message}`);
       return;
     }
 
-    const existingCounts = await countRes.json();
-    console.log('Existing counts from backend:', existingCounts);
+    setBillNumber(data.billNo || '000000');
+    setSuccessModalVisible(true);
+    setEntries([]);
 
-    // Step 6: Validate entries using limits + existing counts
-    const totalSoFar = { ...existingCounts }; // keyed by type-number
-    const validEntries = [];
-    const exceededEntries = [];
-
-    for (const entry of entries) {
-      const count = entry.count || 1;
-      const rawType = entry.type.replace(selectedCode, '').replace(/-/g, '').toUpperCase();
-      const key = `${rawType}-${entry.number}`;
-      const maxLimit = parseInt(allLimits[rawType] || '9999', 10);
-
-      const currentTotal = totalSoFar[key] || 0;
-      const allowedCount = maxLimit - currentTotal;
-
-      console.log(`[VALIDATION] ${key}: Max=${maxLimit}, Current=${currentTotal}, Attempted=${count}, Allowed=${allowedCount}`);
-
-      if (allowedCount <= 0) {
-        exceededEntries.push({ key, attempted: count, limit: maxLimit, existing: currentTotal, added: 0 });
-        continue;
-      }
-
-      if (count <= allowedCount) {
-        validEntries.push(entry);
-        totalSoFar[key] = currentTotal + count;
-      } else {
-        validEntries.push({ ...entry, count: allowedCount });
-        totalSoFar[key] = currentTotal + allowedCount;
-        exceededEntries.push({ key, attempted: count, limit: maxLimit, existing: currentTotal, added: allowedCount });
-      }
-    }
-
-    if (validEntries.length === 0) {
-      alert('⛔ All entries exceed the allowed limit for some numbers.');
-      return;
-    }
-    if (exceededEntries.length > 0) {
-      const exceededMsg = exceededEntries
-        .map(e => `${e.key}: Limit ${e.limit}, Existing ${e.existing}, Attempted ${e.attempted}, Added ${e.added}`)
-        .join('\n');
-      alert(`⚠️ Some entries were partially or fully skipped due to limits:\n${exceededMsg}`);
-    }
-
-    // Step 7: Save valid entries
-    const payload = {
-      entries: validEntries,
-      timeLabel: selectedTime,
-      timeCode: selectedCode,
-      selectedAgent: selection || loggedInUser,
-      createdBy: selection || loggedInUser,
-      toggleCount: toggleCount,
-    };
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-    const saveRes = await fetch('https://manu-netflix.onrender.com/addEntries', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    const saveData = await saveRes.json();
-    if (saveRes.ok) {
-      setBillNumber(saveData?.billNo || '000000');
-      setSuccessModalVisible(true);
-      setEntries([]);
-    } else {
-      alert('❌ Error saving: ' + (saveData?.message || 'Unknown error'));
+    if (data.exceeded?.length > 0) {
+      alert(`⚠️ Some entries were partially skipped:\n${data.exceeded.map((e: any) => `${e.key}: Limit ${e.limit}, Added ${e.added}`).join('\n')}`);
     }
 
   } catch (err) {
-    console.error('❌ Save error:', err.message || err);
+    console.error(err);
     alert('❌ Network error. Please try again.');
   }
 };
-
 
 
 
@@ -854,44 +902,44 @@ useEffect(() => {
   {toggleCount === 1 ? (
     <>
       <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#E91E63' }]} onPress={() => handleAddEntry(`${selectedCode}-A`)}>
-onPress={focusNumberInput}<Text style={styles.actionText}>{selectedCode}A</Text>
+        <Text style={styles.actionText}>{selectedCode}A</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#9C27B0' }]} onPress={() => handleAddEntry(`${selectedCode}-B`)}>
-<Text style={styles.actionText}>{selectedCode}B</Text>
+        <Text style={styles.actionText}>{selectedCode}B</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#3F51B5' }]} onPress={() => handleAddEntry(`${selectedCode}-C`)}>
-<Text style={styles.actionText}>{selectedCode}C</Text>
+        <Text style={styles.actionText}>{selectedCode}C</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#007AFF' }]} onPress={() => handleAddEntry('ALL')}>
-      onPress={focusNumberInput}  <Text style={styles.actionText}>ALL</Text>
+        <Text style={styles.actionText}>ALL</Text>
       </TouchableOpacity>
     </>
   ) : toggleCount === 2 ? (
     <>
 <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#FF9800' }]} onPress={() => handleAddEntry(`${selectedCode}AB`)}>
-onPress={focusNumberInput}  <Text style={styles.actionText}>{selectedCode}AB</Text>
+  <Text style={styles.actionText}>{selectedCode}AB</Text>
 </TouchableOpacity>
 <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#795548' }]} onPress={() => handleAddEntry(`${selectedCode}AC`)}>
- onPress={focusNumberInput} <Text style={styles.actionText}>{selectedCode}AC</Text>
+  <Text style={styles.actionText}>{selectedCode}AC</Text>
 </TouchableOpacity>
 <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#03A9F4' }]} onPress={() => handleAddEntry(`${selectedCode}BC`)}>
- onPress={focusNumberInput} <Text style={styles.actionText}>{selectedCode}BC</Text>
+  <Text style={styles.actionText}>{selectedCode}BC</Text>
 </TouchableOpacity>
 <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#007AFF' }]} onPress={() => handleAddEntry('ALL')}>
-onPress={focusNumberInput}  <Text style={styles.actionText}>ALL</Text>
+  <Text style={styles.actionText}>ALL</Text>
 </TouchableOpacity>
 
     </>
   ) : (
     <>
-      <TouchableOpacity onPress={() => handleAdd('super')} style={[styles.actionButton, { backgroundColor: '#4CAF50' }]} onPress={() => handleAddEntry(`${selectedCode}SUPER`)}>
-       onPress={focusNumberInput} <Text style={styles.actionText}>{selectedCode}SUPER</Text>
+      <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#4CAF50' }]} onPress={() => handleAddEntry(`${selectedCode}SUPER`)}>
+        <Text style={styles.actionText}>{selectedCode}SUPER</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#9C27B0' }]} onPress={() => handleAddEntry(`${selectedCode}BOX`)}>
-      onPress={focusNumberInput}  <Text style={styles.actionText}>{selectedCode}BOX</Text>
+        <Text style={styles.actionText}>{selectedCode}BOX</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#007AFF' }]} onPress={() => handleAddEntry('ALL')}>
-       onPress={focusNumberInput} <Text style={styles.actionText}>ALL</Text>
+        <Text style={styles.actionText}>ALL</Text>
       </TouchableOpacity>
     </>
   )}
