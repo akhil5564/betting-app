@@ -32,6 +32,8 @@ interface EntryItem {
   timeLabel?: string;
   number: string;
   count: number;
+  rate?: number; // Add rate field
+  type?: string; // Add type field
   createdAt?: string;
   createdBy?: string;
   time?: string;
@@ -49,10 +51,11 @@ const SalesReportDetailedAll = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<SalesReportRouteProp>();
   const { fromDate, toDate, createdBy, timeLabel, entries } = route.params || {};
+  console.log("entries==========",entries);
 
   const [groupedEntries, setGroupedEntries] = useState<GroupedEntry[]>([]);
   const [loading, setLoading] = useState(true);
-const [rateLookup, setRateLookup] = useState<{ [key: string]: number }>({});
+
 
   useEffect(() => {
     const fetchFilteredEntries = async () => {
@@ -104,22 +107,15 @@ const [rateLookup, setRateLookup] = useState<{ [key: string]: number }>({});
   }, [fromDate, toDate, createdBy, timeLabel, entries]);
 
   const renderGroupedEntry = ({ item }: { item: GroupedEntry }) => {
-    const getBetType = (type: string) => {
-    if (!type) return 'SUPER'; // default
-    const parts = type.split('-');
-    return parts[parts.length - 1]; // e.g., SUPER, AB, etc.
-  };
+    let totalCount = 0;
+    let totalAmount = 0;
 
-  let totalCount = 0;
-  let totalAmount = 0;
-
-  item.items.forEach((entry) => {
-    const count = Number(entry.count) || 0;
-    const betType = getBetType(entry.type);
-    const rate = rateLookup[betType] ?? 10; // fallback
-    totalCount += count;
-    totalAmount += count * rate;
-  });
+    item.items.forEach((entry) => {
+      const count = Number(entry.count) || 0;
+      const rate = Number(entry.rate) || 0; // Use rate from entry
+      totalCount += count;
+      totalAmount += rate; // rate already contains count * rate
+    });
 
     return (
       <View style={styles.billContainer}>
@@ -159,14 +155,13 @@ const [rateLookup, setRateLookup] = useState<{ [key: string]: number }>({});
         </TouchableOpacity>
 
        {item.items.map((entry, idx) => {
-  const betType = getBetType(entry.type);
-  const rate = rateLookup[betType] ?? 10;
+  const rate = Number(entry.rate) || 0; // Use rate from entry
   return (
     <View style={styles.itemRow} key={entry._id + idx}>
       <Text style={styles.itemCell}>{entry.timeLabel}</Text>
       <Text style={styles.itemCell}>{entry.number}</Text>
       <Text style={styles.itemCell}>{entry.count}</Text>
-      <Text style={styles.itemCell}>{(entry.count * rate).toFixed(2)}</Text>
+      <Text style={styles.itemCell}>{rate.toFixed(2)}</Text>
     </View>
   );
 })}
@@ -174,38 +169,7 @@ const [rateLookup, setRateLookup] = useState<{ [key: string]: number }>({});
       </View>
     );
   };
-useEffect(() => {
-  const fetchRates = async () => {
-    try {
-      if (!createdBy || !timeLabel || timeLabel === 'all') return;
 
-      const rateRes = await fetch(
-        `https://manu-netflix.onrender.com/rateMaster?user=${encodeURIComponent(createdBy)}&draw=${encodeURIComponent(timeLabel)}`
-      );
-      const rateData = await rateRes.json();
-      const lookup: { [key: string]: number } = {};
-      (rateData?.rates || []).forEach((r: any) => {
-        lookup[r.label] = Number(r.rate) || 10; // fallback to 10
-      });
-      setRateLookup(lookup);
-      console.log('Rate lookup:', lookup);
-    } catch (err) {
-      console.error('❌ Error fetching rates:', err);
-    }
-  };
-
-  fetchRates();
-}, [createdBy, timeLabel]);
-useEffect(() => {
-  if (groupedEntries.length && Object.keys(rateLookup).length) {
-    setGroupedEntries(prev =>
-      prev.map(group => ({
-        ...group,
-        items: [...group.items], // forces re-render
-      }))
-    );
-  }
-}, [rateLookup]);
 
   return (
     <SafeAreaView style={styles.container}>

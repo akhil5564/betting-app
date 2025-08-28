@@ -12,6 +12,7 @@ import Checkbox from 'expo-checkbox';
 import { useNavigation } from '@react-navigation/native';
 import React, { useState, useEffect } from 'react'; // <-- ✅ Add useEffect here
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Domain } from './NetPayScreen';
 
 const initialData = [
   { name: 'SUPER', rate: '0', assignRate: '0' },
@@ -54,7 +55,7 @@ useEffect(() => {
       const storedUsername = await AsyncStorage.getItem('username'); // get logged in user
       if (!storedUsername) return;
 
-      const res = await fetch('https://manu-netflix.onrender.com/users');
+      const res = await fetch(`${Domain}/users`);
       const data = await res.json();
 
       // Filter users by createdBy === loggedInUser
@@ -95,7 +96,7 @@ const handleSave = async () => {
 
 const saveRateData = async (payload) => {
   try {
-    const response = await fetch('https://manu-netflix.onrender.com/ratemaster', {
+    const response = await fetch(`${Domain}/ratemaster`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

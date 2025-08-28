@@ -11,6 +11,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Domain } from './NetPayScreen';
+import axios from 'axios';
 
 export default function SalesReportScreen() {
   const navigation = useNavigation();
@@ -22,6 +24,8 @@ export default function SalesReportScreen() {
   const [selectedAgent, setSelectedAgent] = useState('');
   const [loggedInUser, setLoggedInUser] = useState('');
 const [selectedTime, setSelectedTime] = useState('all');
+const [errorMsg, setErrorMsg] = useState<string | null>(null);
+const [loading, setLoading] = useState(false);
 
 const formatDate = (date: Date | undefined) => {
   if (!date) return '';
@@ -36,10 +40,14 @@ useEffect(() => {
   const loadUserAndUsers = async () => {
     try {
       const storedUser = await AsyncStorage.getItem('username');
+      console.log("ddddddddddddddddddddd",`${Domain}/users`);
+      console.log("ddddddddddddddddddddd",storedUser);
       if (storedUser) {
         setLoggedInUser(storedUser);
 
-        const response = await fetch('https://manu-netflix.onrender.com/users');
+        const response = await fetch(`${Domain}/users`);
+        console.log("ddddddddddddddddddddd",response);
+        
         const data = await response.json();
 
         if (response.ok && Array.isArray(data)) {
@@ -50,6 +58,7 @@ useEffect(() => {
           const usernames = filteredUsers
             .map((u: any) => u.username)
             .filter((username: any) => typeof username === 'string' && username.trim() !== '');
+
 
           setAllUsers(usernames);
         } else {
@@ -65,78 +74,127 @@ useEffect(() => {
 }, []);
 
 
-const handleGenerateReport = async () => {
-  try {
-    const formatDate = (date: Date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
+// const handleGenerateReport = async () => {
+//   try {
+//     const formatDate = (date: Date) => {
+//       const year = date.getFullYear();
+//       const month = String(date.getMonth() + 1).padStart(2, '0');
+//       const day = String(date.getDate()).padStart(2, '0');
+//       return `${year}-${month}-${day}`;
+//     };
 
-    const from = formatDate(fromDate);
-    const to = formatDate(toDate);
+//     const from = formatDate(fromDate);
+//     const to = formatDate(toDate);
 
-    const query = new URLSearchParams({
-      createdBy: selectedAgent,
-      timeLabel: selectedTime !== 'all' ? selectedTime : '',
-      fromDate: from,
-      toDate: to,
-    }).toString();
+//     const query = new URLSearchParams({
+//       createdBy: selectedAgent,
+//       timeLabel: selectedTime !== 'all' ? selectedTime : '',
+//       fromDate: from,
+//       toDate: to,
+//     }).toString();
 
-    // Fetch entries
-    const response = await fetch(`https://manu-netflix.onrender.com/entries?${query}`);
-    const data = await response.json();
+//     // Fetch entries
+//     const response = await fetch(`${Domain}/entries?${query}`);
+//     const data = await response.json();
 
-    console.log('📦 Query URL:', `https://manu-netflix.onrender.com/entries?${query}`);
+//     console.log('📦 Query URL:', `${Domain}/entries?${query}`);
 
-    // Fetch rateMaster
-    const rateRes = await fetch(
-      `https://manu-netflix.onrender.com/rateMaster?user=${encodeURIComponent(selectedAgent)}&draw=${encodeURIComponent(selectedTime)}`
-    );
-    const rateData = await rateRes.json();
+//     // Fetch rateMaster
+//     let selected= selectedAgent ? selectedAgent : loggedInUser
+//     const rateRes = await fetch(
+//       `${Domain}/rateMaster?user=${encodeURIComponent(selected)}&draw=${encodeURIComponent(selectedTime)}`
+//     );
+//     const rateData = await rateRes.json();
+// console.log("rateData==========",`${Domain}/rateMaster?user=${encodeURIComponent(selected)}&draw=${encodeURIComponent(selectedTime)}`);
+// console.log("rateData==========",selectedAgent);
+// console.log("rateData==========",rateData);
 
-    const rateLookup: { [key: string]: number } = {};
-    (rateData?.rates || []).forEach((r: any) => {
-      rateLookup[r.label] = Number(r.rate) || 10; // fallback to 10
-    });
-    console.log("Rate lookup:", rateLookup);
+//     const rateLookup: { [key: string]: number } = {};
+//     (rateData?.rates || []).forEach((r: any) => {
+//       rateLookup[r.label] = Number(r.rate) || 10; // fallback to 10
+//     });
+//     console.log("Rate lookup:", rateLookup);
 
-    // Helper to extract bet type from entry.type
-    const extractBetType = (typeStr: string) => {
-      if (!typeStr) return "SUPER";
-      const parts = typeStr.split("-");
-      return parts[parts.length - 1]; // e.g., SUPER, AB, etc.
-    };
+//     // Helper to extract bet type from entry.type
+//     const extractBetType = (typeStr: string) => {
+//       if (!typeStr) return "SUPER";
+//       const parts = typeStr.split("-");
+//       return parts[parts.length - 1]; // e.g., SUPER, AB, etc.
+//     };
 
-    // Calculate totals using dynamic rates
-    let totalCount = 0;
-    let totalSales = 0;
+//     // Calculate totals using dynamic rates
+//     let totalCount = 0;
+//     let totalSales = 0;
 
-    data.forEach((entry) => {
-      const count = Number(entry.count) || 0;
-      const betType = extractBetType(entry.type);
-      const rate = rateLookup[betType] ?? 10; // fallback to 10 if not found
-      totalCount += count;
-      totalSales += count * rate;
-    });
+//     data.forEach((entry) => {
+//       const count = Number(entry.count) || 0;
+//       const betType = extractBetType(entry.type);
+//       const rate = rateLookup[betType] ?? 10; // fallback to 10 if not found
+//       totalCount += count;
+//       totalSales += count * rate;
+//     });
 
-    // Navigate with totals
-    navigation.navigate('SalesReportSummery', {
-      count: totalCount,
-      amount: totalSales,           // ✅ use dynamic sales
-      date: `${from} to ${to} (${selectedTime})`,
-      fromDate: from,
-      toDate: to,
-      createdBy: selectedAgent,
-      timeLabel: selectedTime,
-      entries: data,
-    });
-  } catch (error) {
-    console.error('❌ Error generating report:', error);
+//     // Navigate with totals
+//     navigation.navigate('SalesReportSummery', {
+//       count: totalCount,
+//       amount: totalSales,           // ✅ use dynamic sales
+//       date: `${from} to ${to} (${selectedTime})`,
+//       fromDate: from,
+//       toDate: to,
+//       createdBy: selectedAgent,
+//       timeLabel: selectedTime,
+//       entries: data,
+//     });
+//   } catch (error) {
+//     console.error('❌ Error generating report:', error);
+//   }
+// };
+
+
+// SalesReportScreen.tsx
+
+// SalesReportScreen.tsx
+
+async function handleGenerateReport() {
+  if (toDate < fromDate) {
+    setErrorMsg("To date must be after or equal to From date");
+    return;
   }
-};
 
+  setLoading(true);
+  setErrorMsg(null);
+
+  try {
+    const params = {
+      fromDate: formatDate(fromDate),
+      toDate: formatDate(toDate),
+      createdBy: selectedAgent || "",   // backend handles loggedInUser if empty
+      timeLabel: selectedTime || "all",
+      loggedInUser,
+    };
+
+    console.log("📤 Requesting Sales Report with params:", params);
+
+    const res = await axios.get(`${Domain}/report/salesReport`, { params });
+
+    if (!res.data) {
+      setErrorMsg("No report data returned.");
+      setLoading(false);
+      return;
+    }
+
+    console.log("✅ Sales Report (backend):", res.data);
+
+    // Navigate to SalesReportSummery with backend response
+    (navigation as any).navigate("SalesReportSummery", { report: res.data });
+
+  } catch (err: any) {
+    console.error("❌ Fetch error (sales report frontend):", err);
+    setErrorMsg("Failed to fetch sales report: " + err.message);
+  } finally {
+    setLoading(false);
+  }
+}
 
 
 

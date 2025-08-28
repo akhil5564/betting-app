@@ -7,6 +7,7 @@ const SalesReportSummary = () => {
   const navigation = useNavigation();
   const route = useRoute();
 
+const { report } = (route.params as any) || {};
 const {
   count = 0,
   amount = 0,
@@ -16,7 +17,9 @@ const {
   createdBy,
   timeLabel,
   entries = [],
-} = route.params || {};
+} = report || {};
+console.log("params==========",report);
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -58,7 +61,7 @@ const {
 <TouchableOpacity
   style={styles.button}
   onPress={() =>
-    navigation.navigate('SalesReportDetailed', {
+    (navigation as any).navigate('SalesReportDetailed', {
       fromDate,
       toDate,
       createdBy,
