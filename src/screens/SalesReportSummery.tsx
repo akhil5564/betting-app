@@ -18,7 +18,6 @@ const {
   timeLabel,
   entries = [],
 } = report || {};
-console.log("params==========",report);
 
 
   return (
