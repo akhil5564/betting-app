@@ -13,6 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import React, { useState, useEffect } from 'react'; // <-- ✅ Add useEffect here
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Domain } from './NetPayScreen';
+import axios from 'axios';
 
 const initialData = [
   { name: 'SUPER', rate: '0', assignRate: '0' },
@@ -94,19 +95,19 @@ const handleSave = async () => {
   }
 };
 
-const saveRateData = async (payload) => {
+const saveRateData = async (payload: any) => {
+  console.log("payload",payload);
+  
   try {
-    const response = await fetch(`${Domain}/ratemaster`, {
-      method: 'POST',
+    const response = await axios.post(`${Domain}/ratemaster`, payload, {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
     });
+    const data = await response.data;
+    console.log("response",data);
 
-    const data = await response.json();
-
-    if (response.ok) {
+    if (data.status === 200) {
       console.log('✅ Rate data saved successfully');
       console.log('👤 User:', data.data?.user);
       console.log('🕐 Draw:', data.data?.draw);

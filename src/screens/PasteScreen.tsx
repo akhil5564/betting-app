@@ -10,11 +10,17 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
+
+type RootStackParamList = {
+  Add: { pastedText?: string; selectedTime?: string };
+  Paste: { selectedTime?: string };
+};
 
 const PasteScreen: React.FC = () => {
   const [text, setText] = useState('');
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'Paste'>>();
 
   const handlePaste = async () => {
     try {
@@ -56,13 +62,13 @@ const PasteScreen: React.FC = () => {
       return;
     }
 
-    navigation.navigate('Add', { pastedText: text });
+    navigation.navigate('Add', { pastedText: text, selectedTime: route.params?.selectedTime });
     setText('');
   };
 
   const handleCancel = () => {
     setText('');
-    navigation.navigate('Add'); // Navigate to Add screen on cancel
+    navigation.navigate('Add', { selectedTime: route.params?.selectedTime }); // Navigate to Add screen on cancel
   };
 
   const handleCameraScan = async () => {
