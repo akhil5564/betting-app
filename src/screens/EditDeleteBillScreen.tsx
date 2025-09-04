@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
+import { Domain } from './NetPayScreen';
 
 const EditDeleteBillScreen = () => {
   const route = useRoute();
@@ -65,7 +66,7 @@ const EditDeleteBillScreen = () => {
   const fetchBlockTime = async (timeLabelParam) => {
     try {
       const encodedLabel = encodeURIComponent(timeLabelParam);
-      const res = await fetch(`https://manu-netflix.onrender.com/getBlockTime/${encodedLabel}`);
+      const res = await fetch(`${Domain}/getBlockTime/${encodedLabel}`);
       if (!res.ok) throw new Error('Failed to fetch block time');
       const data = await res.json();
 
@@ -108,7 +109,7 @@ const EditDeleteBillScreen = () => {
     if (!searchBillNo) return;
     try {
       setLoading(true);
-      const res = await fetch(`https://manu-netflix.onrender.com/entries?billNo=${searchBillNo}`);
+      const res = await fetch(`${Domain}/entries?billNo=${searchBillNo}`);
       const data = await res.json();
       setEntries(data);
 
@@ -152,7 +153,7 @@ const EditDeleteBillScreen = () => {
         style: 'destructive',
         onPress: async () => {
           try {
-            const res = await fetch(`https://manu-netflix.onrender.com/deleteEntriesByBillNo/${billNo}`, {
+            const res = await fetch(`${Domain}/deleteEntriesByBillNo/${billNo}`, {
               method: 'DELETE',
             });
             const result = await res.json();
@@ -195,7 +196,7 @@ const EditDeleteBillScreen = () => {
   // Delete single entry by id
   const deleteEntryById = async (id) => {
     try {
-      const res = await fetch(`https://manu-netflix.onrender.com/deleteEntryById/${id}`, {
+      const res = await fetch(`${Domain}/deleteEntryById/${id}`, {
         method: 'DELETE',
       });
 
@@ -228,7 +229,7 @@ const EditDeleteBillScreen = () => {
       return;
     }
     try {
-      const res = await fetch(`https://manu-netflix.onrender.com/updateEntryCount/${id}`, {
+      const res = await fetch(`${Domain}/updateEntryCount/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count: parseInt(editingCount) }),

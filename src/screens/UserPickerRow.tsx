@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { View, StyleSheet, ActivityIndicator } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Domain } from "./NetPayScreen";
 
 interface UserPickerRowProps {
   onUserChange?: (selectedUser: string | null) => void;
@@ -30,7 +31,7 @@ useEffect(() => {
       setLoggedInUser(storedUser);
       setSelectedUser1(storedUser); // ✅ set as initial value
 
-      const res = await fetch("https://manu-netflix.onrender.com/users");
+      const res = await fetch(`${Domain}/users`);
       const data = await res.json();
       setAllUsers(data);
 

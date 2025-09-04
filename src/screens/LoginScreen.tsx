@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
 import logo from '../assets/bajaj.png';
+import { Domain } from './NetPayScreen';
 
 const LoginScreen = () => {
   const navigation = useNavigation();
@@ -42,7 +43,7 @@ const LoginScreen = () => {
 
     // ✅ API LOGIN
     try {
-      const response = await axios.post('https://manu-netflix.onrender.com/login', {
+      const response = await axios.post(`${Domain}/login`, {
         username: uname,
         password: pwd,
       });

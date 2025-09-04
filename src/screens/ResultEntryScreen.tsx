@@ -14,6 +14,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import { Domain } from './NetPayScreen';
 
 const ResultEntryScreen: React.FC = () => {
   const [time, setTime] = useState<string>('DEAR 6PM');
@@ -83,7 +84,7 @@ const ResultEntryScreen: React.FC = () => {
     console.log('Sending payload:', JSON.stringify(payload, null, 2));
 
     try {
-      const response = await fetch('https://manu-netflix.onrender.com/addResult', {
+      const response = await fetch(`${Domain}/addResult`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

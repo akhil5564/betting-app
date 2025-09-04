@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { Domain } from './NetPayScreen';
 
 const TicketLimitScreen = () => {
   const [group1, setGroup1] = useState<{ A: string; B: string; C: string }>({
@@ -33,7 +34,7 @@ const handleSave = async () => {
   };
 
   try {
-    const response = await fetch('https://manu-netflix.onrender.com/ticket-limit', {
+    const response = await fetch(`${Domain}/ticket-limit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

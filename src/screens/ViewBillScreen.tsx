@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
+import { Domain } from './NetPayScreen';
 
 type Entry = {
   _id: string;
@@ -52,7 +53,7 @@ const ViewBillScreen = () => {
 
   const fetchBill = async () => {
     try {
-      const res = await fetch(`https://manu-netflix.onrender.com/entries?billNo=${billId}`);
+      const res = await fetch(`${Domain}/entries?billNo=${billId}`);
       const text = await res.text();
 
       try {
@@ -113,7 +114,7 @@ const ViewBillScreen = () => {
     }
 
     try {
-      const res = await fetch(`https://manu-netflix.onrender.com/updateEntryCount/${id}`, {
+      const res = await fetch(`${Domain}/updateEntryCount/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count: newCount }),
@@ -152,7 +153,7 @@ const ViewBillScreen = () => {
 
   const deleteEntryById = async (id: string) => {
     try {
-      const res = await fetch(`https://manu-netflix.onrender.com/deleteEntryById/${id}`, {
+      const res = await fetch(`${Domain}/deleteEntryById/${id}`, {
         method: 'DELETE',
       });
 

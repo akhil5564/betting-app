@@ -8,12 +8,13 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import axios from 'axios';
 import React, { useState } from 'react';
+import { Domain } from './NetPayScreen';
 
 // API call to toggle login block
 const blockLoginById = async (userId) => {
   try {
     const response = await axios.patch(
-      `https://manu-netflix.onrender.com/user/blockLogin/${userId}`
+      `${Domain}/user/blockLogin/${userId}`
     );
     console.log('✅ User login block toggled:', response.data);
     return response.data;
@@ -27,7 +28,7 @@ const blockLoginById = async (userId) => {
 const blockSalesById = async (userId) => {
   try {
     const response = await axios.patch(
-      `https://manu-netflix.onrender.com/blockSales/${userId}`
+      `${Domain}/blockSales/${userId}`
     );
     console.log('✅ User sales block toggled:', response.data);
     return response.data;

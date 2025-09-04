@@ -13,6 +13,7 @@ import axios from 'axios';
 import { Picker } from '@react-native-picker/picker';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
+import { Domain } from './NetPayScreen';
 
 const timeOptions = ['DEAR 1PM', 'KERALA 3PM', 'DEAR 6PM', 'DEAR 8PM'];
 
@@ -30,7 +31,7 @@ const ResultScreen = () => {
   const handleGenerate = async () => {
     try {
       const formattedDate = formatDate(selectedDate);
-      const url = `https://manu-netflix.onrender.com/getResult?date=${formattedDate}&time=${encodeURIComponent(selectedTime)}`;
+      const url = `${Domain}/getResult?date=${formattedDate}&time=${encodeURIComponent(selectedTime)}`;
       const res = await axios.get(url);
       const data = res.data.results[formattedDate][0][selectedTime];
       setPrizes(data.prizes);

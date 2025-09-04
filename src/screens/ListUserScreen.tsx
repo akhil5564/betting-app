@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Domain } from './NetPayScreen';
 
 const ListUsersScreen = () => {
   const navigation = useNavigation();
@@ -30,7 +31,7 @@ useEffect(() => {
         return;
       }
 
-      const response = await fetch('https://manu-netflix.onrender.com/users');
+      const response = await fetch(`${Domain}/users`);
       const data = await response.json();
 
       // Filter only users created by the logged-in user

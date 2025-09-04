@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import axios from 'axios';
+import { Domain } from './NetPayScreen';
 
 const TimeSetScreen = ({ navigation }) => {
   const [blockTime, setBlockTime] = useState(new Date());
@@ -82,7 +83,7 @@ const TimeSetScreen = ({ navigation }) => {
 
     try {
       const response = await axios.post(
-        'https://manu-netflix.onrender.com/setBlockTime',
+        `${Domain}/setBlockTime`,
         { blocks: blocksToSend }
       );
 

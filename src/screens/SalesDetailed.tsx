@@ -10,6 +10,7 @@ import {
 import { Ionicons, AntDesign } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Domain } from './NetPayScreen';
 
 type RootStackParamList = {
   EditDeleteBill: { billNo: string };
@@ -73,10 +74,10 @@ const SalesReportDetailedAll = () => {
           timeLabel: timeLabel && timeLabel !== 'all' ? timeLabel : '',
         }).toString();
 
-        const res = await fetch(`https://manu-netflix.onrender.com/entries?${query}`);
+        const res = await fetch(`${Domain}/entries?${query}`);
         const data: EntryItem[] = await res.json();
 
-        console.log('📦 Query URL:', `https://manu-netflix.onrender.com/entries?${query}`);
+        console.log('📦 Query URL:', `${Domain}/entries?${query}`);
         groupAndSet(data);
       } catch (err) {
         console.error('❗ Fetch error:', err);

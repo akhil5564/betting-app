@@ -14,6 +14,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Domain } from './NetPayScreen';
 
 const NumberWiseReportScreen = () => {
   const navigation = useNavigation<any>();
@@ -34,7 +35,7 @@ const NumberWiseReportScreen = () => {
         if (storedUser) {
           setLoggedInUser(storedUser);
 
-          const response = await fetch('https://manu-netflix.onrender.com/users');
+          const response = await fetch(`${Domain}/users`);
           const data = await response.json();
 
           if (response.ok && Array.isArray(data)) {
@@ -60,7 +61,7 @@ const NumberWiseReportScreen = () => {
   const handleGenerateReport = async () => {
     try {
       const formattedDate = date.toISOString().split('T')[0];
-      let url = `https://manu-netflix.onrender.com/report/count?date=${formattedDate}`;
+      let url = `${Domain}/report/count?date=${formattedDate}`;
 
       if (selectedTime !== 'ALL') url += `&time=${encodeURIComponent(selectedTime)}`;
       if (ticketNumber.trim()) url += `&number=${ticketNumber.trim()}`;
