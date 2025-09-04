@@ -405,7 +405,7 @@ const saveRateData = async (payload: any) => {
         )}
 
         {/* Debug buttons */}
-        <View style={styles.debugButtonsContainer}>
+        {/* <View style={styles.debugButtonsContainer}>
           <TouchableOpacity 
             style={styles.debugButton} 
             onPress={() => fetchExistingRates(selectedUser, selectedDraw)}
@@ -426,7 +426,7 @@ const saveRateData = async (payload: any) => {
           >
             <Text style={styles.debugButtonText}>🔍 Check DB</Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
       </View>
 
       {/* Table Header */}
