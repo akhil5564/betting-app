@@ -43,7 +43,6 @@ export function extractBetType(typeStr) {
   const parts = typeStr.split("-");
   return parts[parts.length - 1]; // Get the last part (SUPER, BOX, etc.)
 }
-// export const Domain = "http://10.238.117.85:5000";
 export const  Domain ='https://www.muralibajaj.site'
 // export const  Domain ='https://manu-netflix.onrender.com'
 export default function NetPayMultiDayScreen() {
