@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+// @ts-ignore - icon types provided by Expo runtime
 import { Ionicons, AntDesign } from '@expo/vector-icons';
 
 const SalesReportSummary = () => {
@@ -17,6 +18,7 @@ const {
   createdBy,
   timeLabel,
   entries = [],
+  byAgent = [],
 } = report || {};
 
 
@@ -28,7 +30,7 @@ const {
           <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Sales Report Summary</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Main')}>
+        <TouchableOpacity onPress={() => (navigation as any).navigate('Main')}>
           <AntDesign name="home" size={24} color="red" />
         </TouchableOpacity>
       </View>
@@ -74,6 +76,31 @@ const {
 
 
       </View>
+
+      {/* By Agent Breakdown */}
+      {Array.isArray(byAgent) && byAgent.length > 0 && (
+        <View style={styles.card}>
+          <Text style={[styles.headerTitle, { textAlign: 'center' }]}>By Agent</Text>
+          {byAgent.map((row: any) => (
+            <TouchableOpacity
+              key={row.agent}
+              style={styles.agentRow}
+              onPress={() =>
+                (navigation as any).navigate('SalesReportDetailed', {
+                  fromDate,
+                  toDate,
+                  createdBy: row.agent,
+                  timeLabel,
+                })
+              }
+            >
+              <Text style={styles.agentCell}>{row.agent}</Text>
+              <Text style={styles.agentCell}>Count: {row.count}</Text>
+              <Text style={styles.agentCell}>Amount: {Number(row.amount).toFixed(2)}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -138,5 +165,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  agentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: '#eee',
+  },
+  agentCell: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333',
+    textAlign: 'center',
   },
 });
