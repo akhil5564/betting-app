@@ -8,7 +8,7 @@ const SalesReportSummary = () => {
   const navigation = useNavigation();
   const route = useRoute();
 
-const { report } = (route.params as any) || {};
+const { report,loggedInUser } = (route.params as any) || {};
 const {
   count = 0,
   amount = 0,
@@ -68,6 +68,7 @@ const {
       createdBy,
       timeLabel,
       entries,
+      loggedInUser,
     })
   }
 >
@@ -91,6 +92,7 @@ const {
                   toDate,
                   createdBy: row.agent,
                   timeLabel,
+                  loggedInUser,
                 })
               }
             >

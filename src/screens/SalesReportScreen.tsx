@@ -186,7 +186,7 @@ async function handleGenerateReport() {
     console.log("✅ Sales Report (backend):", res.data);
 
     // Navigate to SalesReportSummery with backend response
-    (navigation as any).navigate("SalesReportSummery", { report: res.data });
+    (navigation as any).navigate("SalesReportSummery", { report: res.data,loggedInUser });
 
   } catch (err: any) {
     console.error("❌ Fetch error (sales report frontend):", err);

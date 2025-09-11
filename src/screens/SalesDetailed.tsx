@@ -51,8 +51,10 @@ interface GroupedEntry {
 const SalesReportDetailedAll = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<SalesReportRouteProp>();
-  const { fromDate, toDate, createdBy, timeLabel, entries } = route.params || {};
+  const { fromDate, toDate, createdBy, timeLabel, entries, loggedInUser, } = route.params || {};
   console.log("entries==========",entries);
+  console.log("entries==========",loggedInUser);
+  // console.log("entries==========",route.params);
 
   const [groupedEntries, setGroupedEntries] = useState<GroupedEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,6 +74,7 @@ const SalesReportDetailedAll = () => {
           toDate,
           createdBy: createdBy || '',
           timeLabel: timeLabel && timeLabel !== 'all' ? timeLabel : '',
+          loggedInUser,
         }).toString();
 
         const res = await fetch(`${Domain}/entries?${query}`);
