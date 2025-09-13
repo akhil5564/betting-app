@@ -59,8 +59,8 @@ const [selectedUser, setSelectedUser] = useState("All");
 // const [userRates, setUserRates] = useState<{ [username: string]: number }>({});
   
   const filteredByDateRange = matchedEntries.filter((entry: any) => {
-    const entryDate = entry.createdAt
-      ? entry.createdAt.split("T")[0]
+    const entryDate = entry.date
+      ? entry.date.split("T")[0]
       : entry.date;
     return entryDate >= fromDate && entryDate <= toDate;
   });

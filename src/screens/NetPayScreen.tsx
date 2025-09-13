@@ -44,7 +44,7 @@ export function extractBetType(typeStr) {
   return parts[parts.length - 1]; // Get the last part (SUPER, BOX, etc.)
 }
 export const  Domain ='https://www.muralibajaj.site'
-// export const  Domain ='http://10.4.16.85:5000';
+// export const  Domain ='http://120.4.765.825:5000';
 // export const  Domain ='https://manu-netflix.onrender.com'
 export default function NetPayMultiDayScreen() {
   const navigation = useNavigation();
@@ -149,51 +149,51 @@ export default function NetPayMultiDayScreen() {
     return winAmount;
   };
 
-  const processEntriesForDate = (entriesForDay, resultForDay) =>
-    entriesForDay.map((entry) => ({
-      ...entry,
-      winAmount: calculateWinAmount(entry, resultForDay),
-      // Extract date from createdAt field
-      date: entry.createdAt ? entry.createdAt.split("T")[0] : formatDate(new Date()),
-    }));
+//   const processEntriesForDate = (entriesForDay, resultForDay) =>
+//     entriesForDay.map((entry) => ({
+//       ...entry,
+//       winAmount: calculateWinAmount(entry, resultForDay),
+//       // Extract date from createdAt field
+//       date: entry.createdAt ? entry.createdAt.split("T")[0] : formatDate(new Date()),
+//     }));
 
-const fetchEntriesAndResultsForDate = async (dateStr, timeLabel, agentUsers: string[]) => {
-  try {
-    console.log(`=== Fetching data for ${dateStr} - ${timeLabel} ===`);
+// const fetchEntriesAndResultsForDate = async (dateStr, timeLabel, agentUsers: string[]) => {
+//   try {
+//     console.log(`=== Fetching data for ${dateStr} - ${timeLabel} ===`);
 
-    // Build URL with multiple createdBy parameters
-    const queryParams = agentUsers.map(user => `createdBy=${encodeURIComponent(user)}`);
-    queryParams.push(`timeLabel=${encodeURIComponent(timeLabel)}`);
-    const apiUrl = `${Domain}/entries?${queryParams.join('&')}`;
+//     // Build URL with multiple createdBy parameters
+//     const queryParams = agentUsers.map(user => `createdBy=${encodeURIComponent(user)}`);
+//     queryParams.push(`timeLabel=${encodeURIComponent(timeLabel)}`);
+//     const apiUrl = `${Domain}/entries?${queryParams.join('&')}`;
     
-    console.log(`API URL: ${apiUrl}`);
+//     console.log(`API URL: ${apiUrl}`);
     
-    const entriesRes = await axios.get(apiUrl);
-    const allEntries = entriesRes.data || [];
+//     const entriesRes = await axios.get(apiUrl);
+//     const allEntries = entriesRes.data || [];
     
-    // Filter entries by date
-    const filteredEntries = allEntries.filter(entry => {
-      if (!entry.createdAt) return false;
-      return entry.createdAt.split("T")[0] === dateStr;
-    });
+//     // Filter entries by date
+//     const filteredEntries = allEntries.filter(entry => {
+//       if (!entry.createdAt) return false;
+//       return entry.createdAt.split("T")[0] === dateStr;
+//     });
 
-    // Fetch results
-    const resultRes = await axios.get(
-      `${Domain}/getResult`,
-      { params: { date: dateStr, time: timeLabel } }
-    );
+//     // Fetch results
+//     const resultRes = await axios.get(
+//       `${Domain}/getResult`,
+//       { params: { date: dateStr, time: timeLabel } }
+//     );
 
-    const resultsArray = resultRes.data;
-    const latestResult = Array.isArray(resultsArray) && resultsArray.length > 0
-      ? resultsArray[resultsArray.length - 1]
-      : {};
+//     const resultsArray = resultRes.data;
+//     const latestResult = Array.isArray(resultsArray) && resultsArray.length > 0
+//       ? resultsArray[resultsArray.length - 1]
+//       : {};
 
-    return { entries: filteredEntries, result: latestResult || {} };
-  } catch (error) {
-    console.error(`❌ Error fetching data for ${dateStr}:`, error.message);
-    return { entries: [], result: {} };
-  }
-};
+//     return { entries: filteredEntries, result: latestResult || {} };
+//   } catch (error) {
+//     console.error(`❌ Error fetching data for ${dateStr}:`, error.message);
+//     return { entries: [], result: {} };
+//   }
+// };
 
 
 
@@ -271,7 +271,6 @@ const fetchDataAndNavigate = async () => {
   setError('');
   try {
       let url =`${Domain}/report/netpay-multiday`
-      console.log("sssssssssssssssssss",url);
     const response = await axios.post(url, {
       fromDate: formatDate(fromDate),
       toDate: formatDate(toDate),

@@ -31,16 +31,49 @@ const ResultScreen = () => {
   const handleGenerate = async () => {
     try {
       const formattedDate = formatDate(selectedDate);
-      const url = `${Domain}/getResult?date=${formattedDate}&time=${encodeURIComponent(selectedTime)}`;
-      const res = await axios.get(url);
-      const data = res.data.results[formattedDate][0][selectedTime];
-      setPrizes(data.prizes);
-      setEntries(data.entries.map((e: any) => e.result).slice(0, 30)); // Limit to 30 entries
+      // const url = `${Domain}/getResult?date=${formattedDate}&time=${encodeURIComponent(selectedTime)}`;
+      // console.log(url,'sssssssssssssssssssssssssssssssss');
+      const resultRes = await axios.get(
+        `${Domain}/getResult`,
+        { params: { date: formattedDate, time: selectedTime } }
+      );
+      const res = resultRes;
+      console.log(res,'ressssssssssssssssssssssssssssssssss');
+      
+      // Check if API returned no results (status: 0)
+      if (res.data.status === 0) {
+        setPrizes([]);
+        setEntries([]);
+        alert('No results found for the selected date and time');
+        return;
+      }
+      
+      // Parse the actual API response structure
+      const responseData = res.data.status === 1 ? res.data.data && res.data.data[0] : {};
+      if (!responseData) {
+        throw new Error('No data found in response');
+      }
+      
+      // Extract prizes (positions 1-5)
+      const prizes = [
+        responseData["1"],
+        responseData["2"], 
+        responseData["3"],
+        responseData["4"],
+        responseData["5"]
+      ].filter(prize => prize); // Remove any undefined values
+      
+      // Extract entries from the "others" array
+      const entries = responseData.others || [];
+      
+      setPrizes(prizes);
+      setEntries(entries.slice(0, 30)); // Limit to 30 entries
     } catch (err) {
       console.error(err);
       setPrizes([]);
       setEntries([]);
-      alert('No result found or network error');
+      // alert('No result found or network error');
+      // No error alert shown to user
     }
   };
 
