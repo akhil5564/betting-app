@@ -75,6 +75,7 @@ const AddScreen = () => {
   const subUsers = allUsers.filter((u) => u.usertype === 'sub');
   const [ticketLimits, setTicketLimits] = useState(null);
   const numberRefs = useRef<TextInput[]>([]);
+const startInputRef = useRef<TextInput>(null);
 
   const focusFirstEmptyNumber = () => {
     const firstEmptyIndex = entries.findIndex(e => e.number.trim() === '');
@@ -87,7 +88,8 @@ const AddScreen = () => {
   const [selectedTime, setSelectedTime] = useState('LSK 3 PM');
   const [selectedCode, setSelectedCode] = useState('LSK3');
   const numberInputRef = useRef<TextInput | null>(null);
-
+const rangeStartRef = useRef<TextInput>(null);
+  const rangeEndRef = useRef<TextInput>(null);
   const [assignedRates, setAssignedRates] = useState<Record<string, number>>({});
   const [rates, setRates] = useState<number[]>([]);
   const [billNumber, setBillNumber] = useState('');
@@ -137,7 +139,13 @@ const AddScreen = () => {
 
     load();
   }, []);
+  
 
+useEffect(() => {
+  if (rangeStart === '' && rangeEnd === '' && rangeCount === '' && number === '') {
+    startInputRef.current?.focus();
+  }
+}, [rangeStart, rangeEnd, rangeCount, number]);
 
   useEffect(() => {
     const getUser = async () => {
@@ -284,9 +292,10 @@ const AddScreen = () => {
     return Array.from(result);
   };
 
-  const handleTogglePress = () => {
-    setToggleCount((prev) => (prev === 3 ? 2 : prev === 2 ? 1 : 3));
-  };
+const handleTogglePress = () => {
+  setToggleCount((prev) => (prev === 3 ? 1 : prev + 1));
+};
+
 
 
   const handleAddEntry = (type: string) => {
@@ -315,37 +324,43 @@ const AddScreen = () => {
     };
 
     if (type === 'ALL') {
-      if (toggleCount === 3) {
-        const countVal = useRange ? rangeC : singleC;
-        const boxVal = useRange ? rangeC : boxC;
+if (toggleCount === 3) {
+  const countVal = useRange ? rangeC : singleC;
+  const boxVal = useRange ? rangeC : boxC;
 
-        const loop = () => {
-          let numbers: number[] = [];
-          if (checkboxes.hundred) {
-            numbers = Array.from({ length: 9 }, (_, idx) => (idx + 1) * 100);
-          } else if (checkboxes.tripleOne) {
-            numbers = Array.from({ length: 9 }, (_, idx) => (idx + 1) * 111);
-          } else {
-            numbers = Array.from({ length: end - start + 1 }, (_, idx) => start + idx);
-          }
-          numbers.forEach(i => {
-            if (i >= start && i <= end) {
-              const num = type === 'ALL' ? i.toString() : i.toString();
-              addWithSetCheck(num, countVal, `${selectedCode}SUPER`);
-              addWithSetCheck(num, boxVal, `${selectedCode}BOX`);
-            }
-          });
-        };
+  const loop = () => {
+    let numbers: string[] = [];
 
-        if (useRange) {
-          if (isNaN(start) || isNaN(end) || isNaN(rangeC)) return;
-          loop();
-        } else {
-          if (!number) return;
-          const num = number;
-          addWithSetCheck(num, countVal, `${selectedCode}SUPER`);
-          addWithSetCheck(num, boxVal, `${selectedCode}BOX`);
-        }
+    if (checkboxes.hundred) {
+      // 100, 200, ..., 900
+      numbers = Array.from({ length: 9 }, (_, idx) => ((idx + 1) * 100).toString().padStart(3, '0'));
+    } else if (checkboxes.tripleOne) {
+      // 000, 111, 222, ..., 999
+      numbers = Array.from({ length: 10 }, (_, idx) => (idx * 111).toString().padStart(3, '0'));
+    } else {
+      // General range
+      const s = start ?? 0;
+      const e = end ?? 999;
+      numbers = Array.from({ length: e - s + 1 }, (_, idx) => (s + idx).toString().padStart(3, '0'));
+    }
+
+    numbers.forEach(i => {
+      const numVal = parseInt(i, 10);
+      if (numVal >= start && numVal <= end) {
+        addWithSetCheck(i, countVal, `${selectedCode}SUPER`);
+        addWithSetCheck(i, boxVal, `${selectedCode}BOX`);
+      }
+    });
+  };
+
+  if (useRange) {
+    if (isNaN(start) || isNaN(end) || isNaN(rangeC)) return;
+    loop();
+  } else {
+    if (!number) return;
+    addWithSetCheck(number, countVal, `${selectedCode}SUPER`);
+    addWithSetCheck(number, boxVal, `${selectedCode}BOX`);
+  }
 
       } else if (toggleCount === 2) {
         const labels = ['AB', 'BC', 'AC'];
@@ -355,7 +370,8 @@ const AddScreen = () => {
           if (checkboxes.hundred) {
             numbers = Array.from({ length: 9 }, (_, idx) => (idx + 1) * 100);
           } else if (checkboxes.tripleOne) {
-            numbers = Array.from({ length: 9 }, (_, idx) => (idx + 1) * 111);
+// triple (111-style) numbers including 000
+numbers = [0, ...Array.from({ length: 9 }, (_, idx) => (idx + 1) * 111)];
           } else {
             numbers = Array.from({ length: end - start + 1 }, (_, idx) => start + idx);
           }
@@ -409,43 +425,51 @@ const AddScreen = () => {
     } else {
       if (useRange) {
         if (isNaN(start) || isNaN(end) || isNaN(rangeC)) return;
+if (checkboxes.range) {
+  for (let i = start; i <= end; i++) {
+    addWithSetCheck(i.toString(), rangeC, type);
+  }
+}
 
-        if (checkboxes.range) {
-          for (let i = start; i <= end; i++) {
-            addWithSetCheck(i.toString(), rangeC, type);
-          }
-        }
+
         if (checkboxes.hundred) {
           for (let i = start; i <= end; i += 100) {
             addWithSetCheck(i.toString(), rangeC, type);
           }
         }
-        if (checkboxes.tripleOne) {
-          for (let i = 111; i <= 999; i += 111) {
-            if (i >= start && i <= end) {
-              addWithSetCheck(i.toString(), rangeC, type);
-            }
-          }
-        }
+   if (checkboxes.tripleOne) {
+  // Add 000 if it's in range
+  if (0 >= start && 0 <= end) {
+    addWithSetCheck('000', rangeC, type);
+  }
+
+  // Add 111, 222, ..., 999
+  for (let i = 111; i <= 999; i += 111) {
+    if (i >= start && i <= end) {
+      addWithSetCheck(i.toString(), rangeC, type);
+    }
+  }
+}
+
       } else {
         if (!number || isNaN(singleC)) return;
         addWithSetCheck(number, singleC, type);
       }
     }
 
-    setEntries(prev => [...prev, ...newEntries]);
-    setNumber('');
-    setCount('');
-    setBox('');
-    setRangeStart('');
-    setRangeEnd('');
-    setRangeCount('');
-    setTimeout(() => {
-      numberInputRef.current?.focus();
-    }, 50);
+  setEntries(prev => [...prev, ...newEntries]);
+  setNumber('');
+  setCount('');
+  setBox('');
+  setRangeStart('');
+  setRangeEnd('');
+  setRangeCount('');
 
-  };
-
+  // ✅ Always jump back to Start input
+  setTimeout(() => {
+    startInputRef.current?.focus();
+  }, 50);
+};
 
 
   const checkAndFilterEntries = async () => {
@@ -836,22 +860,30 @@ const AddScreen = () => {
         </View>
         {checkboxes.range || checkboxes.hundred || checkboxes.tripleOne ? (
           <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              placeholder="Start"
-              value={rangeStart}
-              keyboardType="numeric"
-              onChangeText={(text) => {
-                const cleaned = text.replace(/[^0-9]/g, '');
-                const limited = cleaned.slice(0, toggleCount);
-                setRangeStart(limited);
+    
 
-                // Auto focus End input when expected digits reached
-                if (limited.length === toggleCount) {
-                  endInputRef.current?.focus();
-                }
-              }}
-            />
+
+
+
+    <TextInput
+  ref={startInputRef}
+  style={styles.input}
+  placeholder="Start"
+  value={rangeStart}
+  keyboardType="numeric"
+  onChangeText={(text) => {
+    const cleaned = text.replace(/[^0-9]/g, '');
+    const limited = cleaned.slice(0, toggleCount);
+    setRangeStart(limited);
+
+    // Auto focus End input when expected digits reached
+    if (limited.length === toggleCount) {
+      endInputRef.current?.focus();
+    }
+  }}
+/>
+
+
 
 
             <TextInput
@@ -1088,6 +1120,7 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 12,
     paddingBottom: 16,
+    marginTop: 30,
   },
   header: {
     flexDirection: 'row',
@@ -1254,7 +1287,7 @@ const styles = StyleSheet.create({
     left: 8,
     right: 8,
     backgroundColor: 'transparent', // or '#fff' if you want visible bg
-    marginBottom: 0,
+    marginBottom: 14,
   },
   footerBtn: {
     flex: 1,
