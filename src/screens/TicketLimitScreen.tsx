@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,51 @@ const TicketLimitScreen = () => {
     SUPER: '',
     BOX: '',
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [currentLimits, setCurrentLimits] = useState<{
+    group1?: { A?: string; B?: string; C?: string };
+    group2?: { AB?: string; BC?: string; AC?: string };
+    group3?: { SUPER?: string; BOX?: string };
+  }>({});
+
+  useEffect(() => {
+    const fetchCurrentLimits = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const response = await fetch(`${Domain}/getticketLimit`);
+        const result = await response.json();
+        if (response.ok && result) {
+          setCurrentLimits({
+            group1: {
+              A: String(result.group1?.A ?? ''),
+              B: String(result.group1?.B ?? ''),
+              C: String(result.group1?.C ?? ''),
+            },
+            group2: {
+              AB: String(result.group2?.AB ?? ''),
+              BC: String(result.group2?.BC ?? ''),
+              AC: String(result.group2?.AC ?? ''),
+            },
+            group3: {
+              SUPER: String(result.group3?.SUPER ?? ''),
+              BOX: String(result.group3?.BOX ?? ''),
+            },
+          });
+        } else {
+          setLoadError(result?.message || 'Failed to load current ticket limits');
+        }
+      } catch (error) {
+        console.error('Load error:', error);
+        setLoadError('Error loading current ticket limits');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCurrentLimits();
+  }, []);
 
 const handleSave = async () => {
   const payload = {
@@ -83,6 +128,30 @@ const handleSave = async () => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Ticket Limit</Text>
+      {isLoading ? (
+        <Text style={styles.subtleText}>Loading current limits...</Text>
+      ) : loadError ? (
+        <Text style={[styles.subtleText, { color: '#b00020' }]}>{loadError}</Text>
+      ) : (
+        <View style={styles.currentSection}>
+          <Text style={styles.currentTitle}>Current Limits</Text>
+          <View style={styles.currentRow}>
+            <Text style={styles.currentItem}>A: {currentLimits.group1?.A || '-'}</Text>
+            <Text style={styles.currentItem}>B: {currentLimits.group1?.B || '-'}</Text>
+            <Text style={styles.currentItem}>C: {currentLimits.group1?.C || '-'}
+            </Text>
+          </View>
+          <View style={styles.currentRow}>
+            <Text style={styles.currentItem}>AB: {currentLimits.group2?.AB || '-'}</Text>
+            <Text style={styles.currentItem}>BC: {currentLimits.group2?.BC || '-'}</Text>
+            <Text style={styles.currentItem}>AC: {currentLimits.group2?.AC || '-'}</Text>
+          </View>
+          <View style={styles.currentRow}>
+            <Text style={styles.currentItem}>SUPER: {currentLimits.group3?.SUPER || '-'}</Text>
+            <Text style={styles.currentItem}>BOX: {currentLimits.group3?.BOX || '-'}</Text>
+          </View>
+        </View>
+      )}
 
       {renderInputRow('Group 1', ['A', 'B', 'C'], group1, setGroup1)}
       {renderInputRow('Group 2', ['AB', 'BC', 'AC'], group2, setGroup2)}
@@ -109,6 +178,36 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
+  },
+  subtleText: {
+    fontSize: 14,
+    textAlign: 'center',
+    color: '#666',
+    marginBottom: 10,
+  },
+  currentSection: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+  },
+  currentTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#333',
+  },
+  currentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  currentItem: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
   },
   group: {
     marginBottom: 20,

@@ -657,8 +657,9 @@ if (checkboxes.range) {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(`❌ ${data.message}`);
-        return;
+        // Show a friendly dialog summarizing remaining vs attempted
+        const msg = data?.message || 'Limit exceeded. Nothing was saved.';
+        return alert(`⛔ ${msg}`);
       }
 
       setBillNumber(data.billNo || '000000');
@@ -666,7 +667,7 @@ if (checkboxes.range) {
       setEntries([]);
 
       if (data.exceeded?.length > 0) {
-        alert(`⚠️ Some entries were partially skipped:\n${data.exceeded.map((e: any) => `${e.key}: Limit ${e.limit}, Added ${e.added}`).join('\n')}`);
+        alert(`⚠️ Some entries were adjusted:\n${data.exceeded.map((e: any) => `${e.type}: remaining ${e.remaining}, attempted ${e.attempted}, saved ${e.willAdd}`).join('\n')}`);
       }
 
     } catch (err) {
