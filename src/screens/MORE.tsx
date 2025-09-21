@@ -38,9 +38,9 @@ const ReportsScreen = () => {
    
     
       {
-      title: ' Profit',
+      title: ' Block Date',
       icon: <Ionicons name="document-text-outline" size={24} color="white" />,
-      screen: 'netdetailed',
+      screen: 'blockdate',
     },
   ];
 

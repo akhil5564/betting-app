@@ -8,19 +8,18 @@ const SalesReportSummary = () => {
   const navigation = useNavigation();
   const route = useRoute();
 
-const { report,loggedInUser } = (route.params as any) || {};
-const {
-  count = 0,
-  amount = 0,
-  date = '',
-  fromDate,
-  toDate,
-  createdBy,
-  timeLabel,
-  entries = [],
-  byAgent = [],
-} = report || {};
-
+  const { report, loggedInUser } = (route.params as any) || {};
+  const {
+    count = 0,
+    amount = 0,
+    date = '',
+    fromDate,
+    toDate,
+    createdBy,
+    timeLabel,
+    entries = [],
+    byAgent = [],
+  } = report || {};
 
   return (
     <SafeAreaView style={styles.container}>
@@ -33,16 +32,6 @@ const {
         <TouchableOpacity onPress={() => (navigation as any).navigate('Main')}>
           <AntDesign name="home" size={24} color="red" />
         </TouchableOpacity>
-      </View>
-
-      {/* Summary Card */}
-      <View style={styles.card}>
-        <View style={styles.row}>
-          <Text style={styles.label}>Count :</Text>
-          <Text style={styles.value}>{count}</Text>
-          <Text style={[styles.label, { marginLeft: 30 }]}>Amount :</Text>
-          <Text style={styles.value}>{amount}</Text>
-        </View>
       </View>
 
       {/* Date Report Card */}
@@ -59,47 +48,59 @@ const {
           <Text style={styles.value}>{count}</Text>
         </View>
 
-<TouchableOpacity
-  style={styles.button}
-  onPress={() =>
-    (navigation as any).navigate('SalesReportDetailed', {
-      fromDate,
-      toDate,
-      createdBy,
-      timeLabel,
-      entries,
-      loggedInUser,
-    })
-  }
->
-  <Text style={styles.buttonText}>View Detailed</Text>
-</TouchableOpacity>
-
-
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() =>
+            (navigation as any).navigate('SalesReportDetailed', {
+              fromDate,
+              toDate,
+              createdBy,
+              timeLabel,
+              entries,
+              loggedInUser,
+            })
+          }
+        >
+          <Text style={styles.buttonText}>View Detailed</Text>
+        </TouchableOpacity>
       </View>
 
       {/* By Agent Breakdown */}
       {Array.isArray(byAgent) && byAgent.length > 0 && (
-        <View style={styles.card}>
-          <Text style={[styles.headerTitle, { textAlign: 'center' }]}>By Agent</Text>
+        <View>
+          <Text style={[styles.headerTitle, { textAlign: 'center', marginVertical: 10 }]}>
+            By Agent
+          </Text>
+
           {byAgent.map((row: any) => (
-            <TouchableOpacity
-              key={row.agent}
-              style={styles.agentRow}
-              onPress={() =>
-                (navigation as any).navigate('SalesReportDetailed', {
-                  fromDate,
-                  toDate,
-                  createdBy: row.agent,
-                  timeLabel,
-                  loggedInUser,
-                })
-              }
-            >
-              <Text style={styles.agentCell}>{row.agent}</Text>
-              <Text style={styles.agentCell}>Count: {row.count}</Text>
-              <Text style={styles.agentCell}>Amount: {Number(row.amount).toFixed(2)}</Text>
-            </TouchableOpacity>
+            <View key={row.agent} style={styles.card}>
+              <Text style={styles.dateText}>{row.agent}</Text>
+
+              <View style={styles.row}>
+                <Text style={styles.label}>Sales Amount :</Text>
+                <Text style={styles.value}>{Number(row.amount).toFixed(2)}</Text>
+              </View>
+
+              <View style={styles.row}>
+                <Text style={styles.label}>Total Count :</Text>
+                <Text style={styles.value}>{row.count}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() =>
+                  (navigation as any).navigate('SalesReportDetailed', {
+                    fromDate,
+                    toDate,
+                    createdBy: row.agent,
+                    timeLabel,
+                    loggedInUser,
+                  })
+                }
+              >
+                <Text style={styles.buttonText}>View Detailed</Text>
+              </TouchableOpacity>
+            </View>
           ))}
         </View>
       )}
@@ -167,19 +168,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  agentRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-  },
-  agentCell: {
-    flex: 1,
-    fontSize: 14,
-    color: '#333',
-    textAlign: 'center',
   },
 });

@@ -262,7 +262,7 @@ const EditDeleteBillScreen = () => {
 
     return (
       <View style={styles.entryTableRow}>
-        <Text style={styles.cell}>{item.timeLabel}</Text>
+        <Text style={styles.cell}>{item.type}</Text>
         <Text style={styles.cell}>{item.number}</Text>
 
         {isEditing ? (

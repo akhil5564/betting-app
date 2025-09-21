@@ -162,7 +162,7 @@ const SalesReportDetailedAll = () => {
   const rate = Number(entry.rate) || 0; // Use rate from entry
   return (
     <View style={styles.itemRow} key={entry._id + idx}>
-      <Text style={styles.itemCell}>{entry.timeLabel}</Text>
+      <Text style={styles.itemCell}>{entry.type}</Text>
       <Text style={styles.itemCell}>{entry.number}</Text>
       <Text style={styles.itemCell}>{entry.count}</Text>
       <Text style={styles.itemCell}>{rate.toFixed(2)}</Text>

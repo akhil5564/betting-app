@@ -10,10 +10,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import Checkbox from 'expo-checkbox';
 import { useNavigation } from '@react-navigation/native';
-import React, { useState, useEffect } from 'react'; // <-- ✅ Add useEffect here
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useState, useEffect } from 'react';
 import { Domain } from './NetPayScreen';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const initialData = [
   { name: 'SUPER', rate: '0', assignRate: '0' },
@@ -29,17 +29,65 @@ const initialData = [
 const RateMasterScreen = () => {
   const navigation = useNavigation();
   const [selectedDraw, setSelectedDraw] = useState('DEAR 1 PM');
-  const [selectedUser, setSelectedUser] = useState('Fr');
   const [editAll, setEditAll] = useState(false);
   const [ticketData, setTicketData] = useState(initialData);
   const [checkedItems, setCheckedItems] = useState(initialData.map(() => true));
-  const [userList, setUserList] = useState<string[]>([]);
   const [isLoadingRates, setIsLoadingRates] = useState(false);
 
-  // Debug: Watch ticketData changes
+  const [userList, setUserList] = useState<any[]>([]);
+  const [selectedUser1, setSelectedUser1] = useState('');
+  const [selectedUser2, setSelectedUser2] = useState('');
+  const [selectedUser3, setSelectedUser3] = useState('');
+  const [selectedUser4, setSelectedUser4] = useState('');
+
+  const [filteredUsers2, setFilteredUsers2] = useState<any[]>([]);
+  const [filteredUsers3, setFilteredUsers3] = useState<any[]>([]);
+  const [filteredUsers4, setFilteredUsers4] = useState<any[]>([]);
+
+  const [loggedInUser, setLoggedInUser] = useState<string>('');
+  const [loggedInUserRates, setLoggedInUserRates] = useState<any[]>([]);
+
   useEffect(() => {
-    console.log('📝 ticketData state changed:', ticketData);
-  }, [ticketData]);
+    // Get logged-in user from AsyncStorage
+    const getLoggedInUser = async () => {
+      const username = await AsyncStorage.getItem('username');
+      if (username) setLoggedInUser(username);
+    };
+    getLoggedInUser();
+
+    // Fetch all users
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch(`${Domain}/users`);
+        const data = await res.json();
+        setUserList(data);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  // Cascade filters
+  useEffect(() => {
+    if (selectedUser1) setFilteredUsers2(userList.filter((u) => u.createdBy === selectedUser1));
+    else setFilteredUsers2([]);
+    setSelectedUser2(''); setSelectedUser3(''); setSelectedUser4('');
+  }, [selectedUser1]);
+
+  useEffect(() => {
+    if (selectedUser2) setFilteredUsers3(userList.filter((u) => u.createdBy === selectedUser2));
+    else setFilteredUsers3([]);
+    setSelectedUser3(''); setSelectedUser4('');
+  }, [selectedUser2]);
+
+  useEffect(() => {
+    if (selectedUser3) setFilteredUsers4(userList.filter((u) => u.createdBy === selectedUser3));
+    else setFilteredUsers4([]);
+    setSelectedUser4('');
+  }, [selectedUser3]);
+
+  const effectiveUser = selectedUser4 || selectedUser3 || selectedUser2 || selectedUser1;
 
   const handleCheckboxChange = (index: number) => {
     const updated = [...checkedItems];
@@ -47,279 +95,122 @@ const RateMasterScreen = () => {
     setCheckedItems(updated);
   };
 
+  const handleAssignRateChange = (text: string, index: number) => {
+    const updated = [...ticketData];
+    updated[index].assignRate = text;
+    updated[index].rate = text;
+    setTicketData(updated);
+  };
 
-
-const handleAssignRateChange = (text: string, index: number) => {
-  const updated = [...ticketData];
-  updated[index].assignRate = text;
-  updated[index].rate = text; // 👈 update rate as well
-  setTicketData(updated);
-};
-
-// Add function to fetch existing rates
-const fetchExistingRates = async (user: string, draw: string) => {
-  try {
-    if (!user || !draw) {
-      console.log('⚠️ Missing user or draw info');
-      return;
-    }
-
-    setIsLoadingRates(true);
-    console.log('🔄 Starting to fetch rates for:', user, draw);
-
-    if (draw === 'All') {
-      // For "All" selection, show default values (zeros) since we don't want to fetch a specific draw
-      console.log('🔄 "All" selected - showing default values');
-      setTicketData([...initialData]);
-      setIsLoadingRates(false);
-      return;
-    }
-
-    const url = `${Domain}/rateMaster?user=${encodeURIComponent(user)}&draw=${encodeURIComponent(draw)}`;
-    console.log('🔗 Fetching from URL:', url);
-    
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    console.log('🌐 Fetched rates for', user, draw, ':', data);
-    console.log('📊 Response status:', response.status);
-    console.log('📋 Data type:', typeof data);
-    console.log('📋 Data structure:', Object.keys(data || {}));
-
-    // Handle different possible response formats and validate the data
-    let ratesArray = [];
-    let responseUser = '';
-    let responseDraw = '';
-    
-    // Check if response indicates no data found
-    if (data && data.message === 'No rate found') {
-      console.log('❌ Backend returned: No rate found');
-      console.log('🔄 Resetting to initial data (all zeros)');
-      setTicketData([...initialData]);
-      setIsLoadingRates(false);
-      return;
-    }
-    
-    if (data && Array.isArray(data.rates)) {
-      ratesArray = data.rates;
-      responseUser = data.user || '';
-      responseDraw = data.draw || '';
-      console.log('✅ Found rates array:', ratesArray);
-      console.log('👤 Response user:', responseUser);
-      console.log('🕐 Response draw:', responseDraw);
-    } else if (data && Array.isArray(data)) {
-      ratesArray = data;
-      console.log('✅ Found direct rates array:', ratesArray);
-    } else if (data && data.data && Array.isArray(data.data.rates)) {
-      ratesArray = data.data.rates;
-      responseUser = data.data.user || '';
-      responseDraw = data.data.draw || '';
-      console.log('✅ Found rates in data.rates:', ratesArray);
-      console.log('👤 Response user:', responseUser);
-      console.log('🕐 Response draw:', responseDraw);
-    } else {
-      console.log('❌ No rates found in response, using defaults');
-      console.log('🔄 Resetting to initial data (all zeros)');
-      setTicketData([...initialData]); // Create a fresh copy
-      setIsLoadingRates(false);
-      return;
-    }
-
-    // Validate that the response matches the requested user and draw
-    if (responseUser && responseUser !== user) {
-      console.log('❌ Response user mismatch!');
-      console.log('  Requested user:', user);
-      console.log('  Response user:', responseUser);
-      console.log('🔄 Resetting to initial data (all zeros)');
-      setTicketData([...initialData]);
-      setIsLoadingRates(false);
-      return;
-    }
-
-    if (responseDraw && responseDraw !== draw) {
-      console.log('❌ Response draw mismatch!');
-      console.log('  Requested draw:', draw);
-      console.log('  Response draw:', responseDraw);
-      console.log('🔄 Resetting to initial data (all zeros)');
-      setTicketData([...initialData]);
-      setIsLoadingRates(false);
-      return;
-    }
-
-    // Check if ratesArray is empty
-    if (ratesArray.length === 0) {
-      console.log('❌ Rates array is empty, using defaults');
-      console.log('🔄 Resetting to initial data (all zeros)');
-      setTicketData([...initialData]); // Create a fresh copy
-      setIsLoadingRates(false);
-      return;
-    }
-
-    // Map the fetched rates to our ticketData format
-    const updatedTicketData = initialData.map((item) => {
-      console.log(`🔍 Looking for rate matching: ${item.name}`);
-      console.log(`📋 Available rates:`, ratesArray.map((r: any) => ({ label: r.label, rate: r.rate })));
-      
-      const matchingRate = ratesArray.find((r: any) => {
-        const rateLabel = (r.label || r.name || '').toLowerCase();
-        const itemName = item.name.toLowerCase();
-        console.log(`  Comparing: "${rateLabel}" with "${itemName}"`);
-        return rateLabel === itemName;
-      });
-      
-      const rateValue = matchingRate ? matchingRate.rate.toString() : '0';
-      console.log(`  Found rate for ${item.name}: ${rateValue}`);
-      
-      return {
-        ...item,
-        rate: rateValue,
-        assignRate: rateValue,
-      };
-    });
-    
-    console.log('📝 Updated ticket data:', updatedTicketData);
-    setTicketData(updatedTicketData);
-    console.log('✅ Rates loaded successfully');
-    
-  } catch (error) {
-    console.error('❌ Error fetching rates:', error);
-    console.log('🔄 Resetting to initial data due to error');
-    setTicketData(initialData);
-  } finally {
-    setIsLoadingRates(false);
-  }
-};
-
-// Function to manually clear rates (reset to zeros)
-const clearRates = () => {
-  console.log('🧹 Manually clearing rates to zeros');
-  const freshInitialData = initialData.map(item => ({...item}));
-  setTicketData(freshInitialData);
-};
-
-// Function to check what's in the database for current user/draw
-const checkDatabaseRates = async () => {
-  try {
-    console.log('🔍 Checking database for:', selectedUser, selectedDraw);
-    const url = `${Domain}/rateMaster?user=${encodeURIComponent(selectedUser)}&draw=${encodeURIComponent(selectedDraw)}`;
-    const response = await fetch(url);
-    const data = await response.json();
-    console.log('📊 Database response:', data);
-    console.log('📋 Response keys:', Object.keys(data || {}));
-  } catch (error) {
-    console.error('❌ Error checking database:', error);
-  }
-};
-
-useEffect(() => {
-  const fetchAndFilterUsers = async () => {
+  // Fetch rates for selected user
+  const fetchExistingRates = async (user: string, draw: string) => {
     try {
-      const storedUsername = await AsyncStorage.getItem('username'); // get logged in user
-      if (!storedUsername) return;
+      if (!user || !draw) return;
+      setIsLoadingRates(true);
+      const url = `${Domain}/rateMaster?user=${encodeURIComponent(user)}&draw=${encodeURIComponent(draw)}`;
+      const response = await fetch(url);
+      const data = await response.json();
 
-      const res = await fetch(`${Domain}/users`);
-      const data = await res.json();
-
-      // Filter users by createdBy === loggedInUser
-      const filteredUsers = data.filter((user: any) => user.createdBy === storedUsername);
-      const usernames = filteredUsers.map((user: any) => user.username);
-
-      setUserList(usernames);
-      if (usernames.length > 0) {
-        setSelectedUser(usernames[0]);
+      if (!data || data.message === 'No rate found') {
+        setTicketData([...initialData]);
+        return;
       }
+
+      const ratesArray = data.rates || data || [];
+      const updatedTicketData = initialData.map((item) => {
+        const match = ratesArray.find((r: any) => (r.label || r.name)?.toLowerCase() === item.name.toLowerCase());
+        const rateValue = match ? match.rate.toString() : '0';
+        return { ...item, rate: rateValue, assignRate: rateValue };
+      });
+
+      setTicketData(updatedTicketData);
     } catch (error) {
-      console.error('Error fetching usernames:', error);
+      console.error('❌ Error fetching rates:', error);
+      setTicketData(initialData);
+    } finally {
+      setIsLoadingRates(false);
     }
   };
 
-  fetchAndFilterUsers();
-}, []);
+  // Fetch logged-in user rates and log them
+  const fetchLoggedInUserRates = async (draw: string) => {
+    try {
+      if (!loggedInUser || !draw) return;
+      const url = `${Domain}/rateMaster?user=${encodeURIComponent(loggedInUser)}&draw=${encodeURIComponent(draw)}`;
+      const response = await fetch(url);
+      const data = await response.json();
 
-// Add useEffect to fetch rates when user or draw changes
-useEffect(() => {
-  if (selectedUser && selectedDraw) {
-    console.log('🔄 User or draw changed, fetching rates for:', selectedUser, selectedDraw);
-    console.log('📊 Current ticketData before reset:', ticketData);
-    
-    // First reset to initial data to avoid showing stale data
-    const freshInitialData = initialData.map(item => ({...item}));
-    console.log('🔄 Resetting to fresh initial data:', freshInitialData);
-    setTicketData(freshInitialData);
-    
-    // Small delay to ensure state is updated before fetching
-    setTimeout(() => {
-      fetchExistingRates(selectedUser, selectedDraw);
-    }, 100);
-  }
-}, [selectedUser, selectedDraw]);
+      if (!data || data.message === 'No rate found') {
+        setLoggedInUserRates([]);
+        console.log('Logged-in user:', loggedInUser, 'Rates: None');
+        return;
+      }
 
-const handleSave = async () => {
-  try {
-    // Convert ticketData to expected backend format
-    const modifiedRates = ticketData.map((item) => ({
-      label: item.name.toUpperCase(),
-      rate: Number(item.rate),
-    }));
+      const ratesArray = data.rates || data || [];
+      setLoggedInUserRates(ratesArray);
+      console.log('Logged-in user:', loggedInUser);
+      console.log('Logged-in user rates:', ratesArray);
+    } catch (error) {
+      console.error('❌ Error fetching logged-in user rates:', error);
+      setLoggedInUserRates([]);
+    }
+  };
 
-    if (selectedDraw === 'All') {
-      // Save rates to all draws
-      const allDraws = ['DEAR 1 PM', 'KERALA 3 PM', 'DEAR 6 PM', 'DEAR 8 PM'];
-      console.log('🔄 Saving rates to all draws:', allDraws);
-      
-      const savePromises = allDraws.map(draw => {
-        const payload = {
-          user: selectedUser,
-          draw: draw,
-          rates: modifiedRates,
-        };
-        return saveRateData(payload);
+  useEffect(() => {
+    if (effectiveUser && selectedDraw) {
+      setTicketData(initialData.map((item) => ({ ...item })));
+      setTimeout(() => {
+        fetchExistingRates(effectiveUser, selectedDraw);
+      }, 100);
+    }
+
+    if (loggedInUser && selectedDraw) {
+      fetchLoggedInUserRates(selectedDraw);
+    }
+  }, [effectiveUser, selectedDraw, loggedInUser]);
+
+  const handleSave = async () => {
+    try {
+      if (!effectiveUser) {
+        alert('⚠️ Please select a user');
+        return;
+      }
+
+      const modifiedRates = ticketData.map((item) => ({
+        label: item.name.toUpperCase(),
+        rate: Number(item.rate),
+      }));
+
+      if (selectedDraw === 'All') {
+        const allDraws = ['DEAR 1 PM', 'KERALA 3 PM', 'DEAR 6 PM', 'DEAR 8 PM'];
+        await Promise.all(
+          allDraws.map((draw) =>
+            saveRateData({ user: effectiveUser, draw, rates: modifiedRates })
+          )
+        );
+        alert('✅ Rate data saved to all draws');
+      } else {
+        await saveRateData({ user: effectiveUser, draw: selectedDraw, rates: modifiedRates });
+      }
+    } catch (error) {
+      console.error('Error in handleSave:', error);
+      alert('❌ Error saving rate data');
+    }
+  };
+
+  const saveRateData = async (payload: any) => {
+    try {
+      const response = await axios.post(`${Domain}/ratemaster`, payload, {
+        headers: { 'Content-Type': 'application/json' },
       });
-
-      await Promise.all(savePromises);
-      alert('✅ Rate data saved successfully to all draws');
-    } else {
-      // Save to single draw
-      const payload = {
-        user: selectedUser,
-        draw: selectedDraw,
-        rates: modifiedRates,
-      };
-      await saveRateData(payload);
+      const data = await response.data;
+      if (data.status === 200) alert('✅ Rate data saved successfully');
+      else alert('❌ Failed to save rate data');
+    } catch (error) {
+      console.error('❌ Error saving rate data:', error);
+      alert('❌ An error occurred while saving');
     }
-  } catch (error) {
-    console.error('Error in handleSave:', error);
-    alert('❌ Error saving rate data');
-  }
-};
-
-const saveRateData = async (payload: any) => {
-  console.log("payload",payload);
-  
-  try {
-    const response = await axios.post(`${Domain}/ratemaster`, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    const data = await response.data;
-    console.log("response",data);
-
-    if (data.status === 200) {
-      console.log('✅ Rate data saved successfully');
-      console.log('👤 User:', data.data?.user);
-      console.log('🕐 Draw:', data.data?.draw);
-      console.log('📊 Rates:', data.data?.rates);
-      alert('✅ Rate data saved successfully');
-    } else {
-      console.error('❌ Failed to save rate data:', data);
-      alert('❌ Failed to save rate data');
-    }
-  } catch (error) {
-    console.error('❌ Error saving rate data:', error);
-    alert('❌ An error occurred while saving');
-  }
-};
+  };
 
   const renderRow = ({ item, index }: any) => (
     <View style={styles.row}>
@@ -330,15 +221,12 @@ const saveRateData = async (payload: any) => {
           color={checkedItems[index] ? '#10b981' : undefined}
         />
       </View>
-
       <View style={styles.cellWithBorder}>
         <Text style={styles.cellText}>{item.name}</Text>
       </View>
-
       <View style={styles.cellWithBorder}>
         <Text style={styles.cellText}>{item.rate}</Text>
       </View>
-
       <View style={styles.lastCell}>
         <TextInput
           value={item.assignRate}
@@ -358,10 +246,9 @@ const saveRateData = async (payload: any) => {
           <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Rate Master</Text>
-       <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-  <Text style={styles.saveText}>SAVE</Text>
-</TouchableOpacity>
-
+        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+          <Text style={styles.saveText}>SAVE</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Filter card */}
@@ -372,68 +259,57 @@ const saveRateData = async (payload: any) => {
             <Picker.Item label="KERALA 3 PM" value="KERALA 3 PM" />
             <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" />
             <Picker.Item label="DEAR 8 PM" value="DEAR 8 PM" />
-             <Picker.Item label="All" value="All" />
-
+            <Picker.Item label="All" value="All" />
           </Picker>
         </View>
 
-        <View style={styles.pickerBox}>
-          <Picker
-  selectedValue={selectedUser}
-  onValueChange={(itemValue) => setSelectedUser(itemValue)}
-  style={styles.picker}
->
-  {userList.map((username) => (
-    <Picker.Item key={username} label={username} value={username} />
-  ))}
-</Picker>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <View style={[styles.pickerBox, { flex: 0.48 }]}>
+            <Picker selectedValue={selectedUser1} onValueChange={setSelectedUser1}>
+              <Picker.Item label="-- Select Creator --" value="" />
+              {userList.map((u) => (
+                <Picker.Item key={u.username} label={u.username} value={u.username} />
+              ))}
+            </Picker>
+          </View>
+          <View style={[styles.pickerBox, { flex: 0.48 }]}>
+            <Picker selectedValue={selectedUser2} onValueChange={setSelectedUser2} enabled={filteredUsers2.length > 0}>
+              <Picker.Item label="-- Select Child --" value="" />
+              {filteredUsers2.map((u) => (
+                <Picker.Item key={u.username} label={u.username} value={u.username} />
+              ))}
+            </Picker>
+          </View>
+        </View>
 
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+          <View style={[styles.pickerBox, { flex: 0.48 }]}>
+            <Picker selectedValue={selectedUser3} onValueChange={setSelectedUser3} enabled={filteredUsers3.length > 0}>
+              <Picker.Item label="-- Select Sub Child --" value="" />
+              {filteredUsers3.map((u) => (
+                <Picker.Item key={u.username} label={u.username} value={u.username} />
+              ))}
+            </Picker>
+          </View>
+          <View style={[styles.pickerBox, { flex: 0.48 }]}>
+            <Picker selectedValue={selectedUser4} onValueChange={setSelectedUser4} enabled={filteredUsers4.length > 0}>
+              <Picker.Item label="-- Select Sub Sub Child --" value="" />
+              {filteredUsers4.map((u) => (
+                <Picker.Item key={u.username} label={u.username} value={u.username} />
+              ))}
+            </Picker>
+          </View>
         </View>
 
         <View style={styles.editAllRow}>
           <Checkbox value={editAll} onValueChange={setEditAll} />
           <Text style={styles.editAllText}>Edit all Dear tickets</Text>
         </View>
-
-        {/* Show warning when "All" is selected */}
-        {selectedDraw === 'All' && (
-          <View style={styles.allDrawsWarning}>
-            <Text style={styles.allDrawsWarningText}>
-              ⚠️ "All" selected - Rates will be applied to all draws (DEAR 1 PM, KERALA 3 PM, DEAR 6 PM, DEAR 8 PM)
-            </Text>
-          </View>
-        )}
-
-        {/* Debug buttons */}
-        {/* <View style={styles.debugButtonsContainer}>
-          <TouchableOpacity 
-            style={styles.debugButton} 
-            onPress={() => fetchExistingRates(selectedUser, selectedDraw)}
-          >
-            <Text style={styles.debugButtonText}>🔄 Refresh Rates</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.debugButton, styles.clearButton]} 
-            onPress={clearRates}
-          >
-            <Text style={styles.debugButtonText}>🧹 Clear Rates</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.debugButton, styles.checkButton]} 
-            onPress={checkDatabaseRates}
-          >
-            <Text style={styles.debugButtonText}>🔍 Check DB</Text>
-          </TouchableOpacity>
-        </View> */}
       </View>
 
       {/* Table Header */}
       <View style={styles.tableHeader}>
-        <View style={styles.cellWithBorder}>
-          <Text style={styles.headerText}></Text>
-        </View>
+        <View style={styles.cellWithBorder}></View>
         <View style={styles.cellWithBorder}>
           <Text style={styles.headerText}>Ticket Name</Text>
         </View>
@@ -445,18 +321,18 @@ const saveRateData = async (payload: any) => {
         </View>
       </View>
 
-      {/* Loading indicator */}
       {isLoadingRates && (
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading rates for {selectedUser} - {selectedDraw}...</Text>
+          <Text style={styles.loadingText}>
+            Loading rates for {effectiveUser} - {selectedDraw}...
+          </Text>
         </View>
       )}
 
-      {/* Table Rows */}
       <FlatList
         data={ticketData}
         renderItem={renderRow}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={(_, index) => index.toString()}
       />
     </View>
   );
@@ -465,152 +341,23 @@ const saveRateData = async (payload: any) => {
 export default RateMasterScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-    paddingTop: 40,
-  },
-  header: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  saveButton: {
-    backgroundColor: '#facc15',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  saveText: {
-    fontWeight: 'bold',
-  },
-  card: {
-    backgroundColor: 'white',
-    margin: 12,
-    borderRadius: 8,
-    padding: 10,
-    elevation: 2,
-  },
-  pickerBox: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 4,
-    marginBottom: 10,
-  },
-  picker: {
-    height: 50,
-  },
-  editAllRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#d1d5c9',
-    padding: 10,
-    borderRadius: 4,
-  },
-  editAllText: {
-    marginLeft: 8,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#f7254e',
-    alignItems: 'center',
-  },
-  headerText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  row: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    alignItems: 'center',
-    borderBottomColor: '#e5e7eb',
-    borderBottomWidth: 1,
-  },
-  cellWithBorder: {
-    flex: 1,
-    borderRightWidth: 1,
-    borderColor: '#e5e7eb',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  lastCell: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cellText: {
-    fontSize: 14,
-    color: '#000',
-  },
-  input: {
-    fontSize: 14,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    textAlign: 'center',
-    color: '#000',
-    backgroundColor: 'transparent',
-  },
-  loadingContainer: {
-    backgroundColor: '#fef3c7',
-    padding: 12,
-    marginHorizontal: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#92400e',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  debugButton: {
-    backgroundColor: '#3b82f6',
-    padding: 10,
-    borderRadius: 4,
-    alignItems: 'center',
-    marginTop: 10,
-    flex: 1,
-    marginHorizontal: 5,
-  },
-  debugButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  debugButtonsContainer: {
-    flexDirection: 'row',
-    marginTop: 10,
-  },
-  clearButton: {
-    backgroundColor: '#ef4444',
-  },
-  checkButton: {
-    backgroundColor: '#10b981',
-  },
-  allDrawsWarning: {
-    backgroundColor: '#fef3c7',
-    padding: 10,
-    borderRadius: 4,
-    marginTop: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#f59e0b',
-  },
-  allDrawsWarningText: {
-    color: '#92400e',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
+  container: { flex: 1, backgroundColor: '#f3f4f6', paddingTop: 20 },
+  header: { flexDirection: 'row', paddingHorizontal: 12, alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  headerTitle: { fontSize: 18, fontWeight: 'bold' },
+  saveButton: { backgroundColor: '#facc15', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 4 },
+  saveText: { fontWeight: 'bold' },
+  card: { backgroundColor: 'white', margin: 8, borderRadius: 6, padding: 8, elevation: 2 },
+  pickerBox: { borderWidth: 1, borderColor: '#ccc', borderRadius: 4, marginBottom: 6 },
+  picker: { height: 50 },
+  editAllRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#d1d5c9', padding: 8, borderRadius: 4 },
+  editAllText: { marginLeft: 6, fontWeight: 'bold', color: '#333' },
+  tableHeader: { flexDirection: 'row', backgroundColor: '#f7254e', alignItems: 'center' },
+  headerText: { color: 'white', fontWeight: 'bold', fontSize: 14, textAlign: 'center' },
+  row: { flexDirection: 'row', backgroundColor: 'white', alignItems: 'center', borderBottomColor: '#e5e7eb', borderBottomWidth: 1 },
+  cellWithBorder: { flex: 1, borderRightWidth: 1, borderColor: '#e5e7eb', paddingVertical: 8, paddingHorizontal: 6, justifyContent: 'center', alignItems: 'center' },
+  lastCell: { flex: 1, paddingVertical: 8, paddingHorizontal: 6, justifyContent: 'center', alignItems: 'center' },
+  cellText: { fontSize: 14, color: '#000' },
+  input: { fontSize: 14, paddingVertical: 4, paddingHorizontal: 6, textAlign: 'center', color: '#000', backgroundColor: 'transparent' },
+  loadingContainer: { backgroundColor: '#fef3c7', padding: 10, marginHorizontal: 8, borderRadius: 6, alignItems: 'center' },
+  loadingText: { color: '#92400e', fontWeight: 'bold', fontSize: 14 },
 });

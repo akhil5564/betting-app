@@ -37,15 +37,14 @@ function formatDate(date) {
   return date.toISOString().split("T")[0];
 }
 
-// Extract bet type from the type field (e.g., "D-1-SUPER" -> "SUPER")
 export function extractBetType(typeStr) {
   if (!typeStr) return "";
   const parts = typeStr.split("-");
-  return parts[parts.length - 1]; // Get the last part (SUPER, BOX, etc.)
+  return parts[parts.length - 1];
 }
-export const  Domain ='https://www.muralibajaj.site'
-// export const  Domain ='http://120.4.765.825:5000';
-// export const  Domain ='https://manu-netflix.onrender.com'
+
+export const Domain = "https://www.muralibajaj.site";
+
 export default function NetPayMultiDayScreen() {
   const navigation = useNavigation();
   const [fromDate, setFromDate] = useState(new Date());
@@ -67,9 +66,7 @@ export default function NetPayMultiDayScreen() {
           setSelectedAgent(storedUser);
           setLoggedInUser(storedUser);
 
-          const response = await fetch(
-            `${Domain}/users`
-          );
+          const response = await fetch(`${Domain}/users`);
           const data = await response.json();
 
           if (response.ok && Array.isArray(data)) {
@@ -81,7 +78,6 @@ export default function NetPayMultiDayScreen() {
                   typeof username === "string" && username.trim() !== ""
               );
 
-            // Include the logged-in user at the top
             setAllUsers([storedUser, ...usernames]);
           } else {
             console.error("Invalid data format from API");
@@ -114,7 +110,7 @@ export default function NetPayMultiDayScreen() {
     const baseType = extractBetType(entry.type);
 
     let winAmount = 0;
-    
+
     if (baseType === "SUPER") {
       const prizePos = allPrizes.indexOf(num) + 1;
       if (prizePos > 0) {
@@ -149,163 +145,61 @@ export default function NetPayMultiDayScreen() {
     return winAmount;
   };
 
-//   const processEntriesForDate = (entriesForDay, resultForDay) =>
-//     entriesForDay.map((entry) => ({
-//       ...entry,
-//       winAmount: calculateWinAmount(entry, resultForDay),
-//       // Extract date from createdAt field
-//       date: entry.createdAt ? entry.createdAt.split("T")[0] : formatDate(new Date()),
-//     }));
+  const getAllDescendants = (username, usersList) => {
+    const children = usersList
+      .filter((u) => u.createdBy === username)
+      .map((u) => u.username);
 
-// const fetchEntriesAndResultsForDate = async (dateStr, timeLabel, agentUsers: string[]) => {
-//   try {
-//     console.log(`=== Fetching data for ${dateStr} - ${timeLabel} ===`);
-
-//     // Build URL with multiple createdBy parameters
-//     const queryParams = agentUsers.map(user => `createdBy=${encodeURIComponent(user)}`);
-//     queryParams.push(`timeLabel=${encodeURIComponent(timeLabel)}`);
-//     const apiUrl = `${Domain}/entries?${queryParams.join('&')}`;
-    
-//     console.log(`API URL: ${apiUrl}`);
-    
-//     const entriesRes = await axios.get(apiUrl);
-//     const allEntries = entriesRes.data || [];
-    
-//     // Filter entries by date
-//     const filteredEntries = allEntries.filter(entry => {
-//       if (!entry.createdAt) return false;
-//       return entry.createdAt.split("T")[0] === dateStr;
-//     });
-
-//     // Fetch results
-//     const resultRes = await axios.get(
-//       `${Domain}/getResult`,
-//       { params: { date: dateStr, time: timeLabel } }
-//     );
-
-//     const resultsArray = resultRes.data;
-//     const latestResult = Array.isArray(resultsArray) && resultsArray.length > 0
-//       ? resultsArray[resultsArray.length - 1]
-//       : {};
-
-//     return { entries: filteredEntries, result: latestResult || {} };
-//   } catch (error) {
-//     console.error(`❌ Error fetching data for ${dateStr}:`, error.message);
-//     return { entries: [], result: {} };
-//   }
-// };
-
-
-
-
-// Get all descendants recursively using createdBy field
-const getAllDescendants = (username: string, usersList: any[]): string[] => {
-  const children = usersList
-    .filter((u: any) => u.createdBy === username) // ✅ use createdBy, not parent
-    .map((u: any) => u.username);
-
-  let all: string[] = [...children];
-  children.forEach((child) => {
-    all = all.concat(getAllDescendants(child, usersList));
-  });
-  return all;
-};
-
-
-// const fetchDataAndNavigate = async () => {
-//   setLoading(true);
-//   setError("");
-
-//   try {
-//     const usersRes = await axios.get("https://manu-netflix.onrender.com/users");
-//     const usersList = usersRes.data || [];
-
-//     // Selected agent + descendants
-//     const agentUsers = selectedAgent
-//       ? [selectedAgent, ...getAllDescendants(selectedAgent, usersList)]
-//       : usersList.map(u => u.username);
-
-//     const dates = [];
-//     let current = new Date(fromDate);
-//     const end = new Date(toDate);
-//     while (current <= end) {
-//       dates.push(formatDate(current));
-//       current = addDays(current, 1);
-//     }
-
-//     let allEntries = [];
-
-//     for (const dateStr of dates) {
-//       const { entries: dayEntries, result: dayResult } =
-//         await fetchEntriesAndResultsForDate(dateStr, selectedTime, agentUsers);
-
-//       if (dayEntries.length > 0) {
-//         const processedEntries = processEntriesForDate(dayEntries, dayResult);
-//         allEntries = allEntries.concat(processedEntries);
-//       }
-//     }
-
-//     if (allEntries.length === 0) {
-//       setError("No entries found for the selected date range and agent.");
-//       setLoading(false);
-//       return;
-//     }
-
-//     navigation.navigate("netdetailed", {
-//       fromDate: formatDate(fromDate),
-//       toDate: formatDate(toDate),
-//       time: selectedTime,
-//       agent: selectedAgent || "All Agents",
-//       matchedEntries: allEntries,
-//       usersList,
-//     });
-//   } catch (err: any) {
-//     setError("Failed to fetch data: " + err.message);
-//   } finally {
-//     setLoading(false);
-//   }
-// };
-
-const fetchDataAndNavigate = async () => {
-  setLoading(true);
-  setError('');
-  try {
-      let url =`${Domain}/report/netpay-multiday`
-    const response = await axios.post(url, {
-      fromDate: formatDate(fromDate),
-      toDate: formatDate(toDate),
-      time: selectedTime,
-      agent: selectedAgent,
+    let all = [...children];
+    children.forEach((child) => {
+      all = all.concat(getAllDescendants(child, usersList));
     });
+    return all;
+  };
 
-    const allEntries = response.data.entries || [];
-    if (allEntries.length === 0) {
-      setError("No entries found for the selected date range and agent.");
+  const fetchDataAndNavigate = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      // Map "All" to all individual times
+      const timeToSend =
+        selectedTime === "All"
+          ? ["DEAR 1 PM", "LSK 3 PM", "DEAR 6 PM", "DEAR 8 PM"]
+          : selectedTime;
+
+      const response = await axios.post(`${Domain}/report/netpay-multiday`, {
+        fromDate: formatDate(fromDate),
+        toDate: formatDate(toDate),
+        time: timeToSend,
+        agent: selectedAgent,
+      });
+
+      const allEntries = response.data.entries || [];
+      if (allEntries.length === 0) {
+        setError("No entries found for the selected date range and agent.");
+        setLoading(false);
+        return;
+      }
+
+      navigation.navigate("netdetailed", {
+        fromDate: formatDate(fromDate),
+        toDate: formatDate(toDate),
+        time: selectedTime, // keep "All" in UI/navigation
+        agent: selectedAgent || "All Agents",
+        matchedEntries: allEntries,
+        userRates: response.data.userRates,
+        usersList: response.data.usersList || [],
+      });
+    } catch (err) {
+      setError("Failed to fetch data: " + err.message);
+    } finally {
       setLoading(false);
-      return;
     }
-    // Now you have all processed entries with winAmount from backend!
-    navigation.navigate("netdetailed", {
-      fromDate: formatDate(fromDate),
-      toDate: formatDate(toDate),
-      time: selectedTime,
-      agent: selectedAgent || "All Agents",
-      matchedEntries: allEntries,
-       userRates: response.data.userRates, 
-       usersList: response.data.usersList || [],
-      // usersList if you still need it
-    });
-  } catch (err) {
-    setError("Failed to fetch data: " + err.message);
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
@@ -325,15 +219,14 @@ const fetchDataAndNavigate = async () => {
           <Picker.Item label="LSK 3 PM" value="LSK 3 PM" />
           <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" />
           <Picker.Item label="DEAR 8 PM" value="DEAR 8 PM" />
+          <Picker.Item label="All" value="All" />
         </Picker>
 
         <View style={styles.row}>
           <View style={styles.dateInput}>
             <Text style={styles.label}>From Date</Text>
             <TouchableOpacity onPress={() => setShowFrom(true)}>
-              <Text style={styles.dateText}>
-                {fromDate.toLocaleDateString()}
-              </Text>
+              <Text style={styles.dateText}>{fromDate.toLocaleDateString()}</Text>
             </TouchableOpacity>
             {showFrom && (
               <DateTimePicker
@@ -372,19 +265,21 @@ const fetchDataAndNavigate = async () => {
         </View>
 
         <Text style={styles.pickerWrapper}>Select Agent</Text>
-<Picker
-  selectedValue={selectedAgent}
-  onValueChange={setSelectedAgent}
-  style={styles.picker}
->
-  <Picker.Item label="All Agents" value="" />
-  {allUsers.map((username, i) => (
-    <Picker.Item key={i} label={username} value={username} />
-  ))}
-</Picker>
+        <Picker
+          selectedValue={selectedAgent}
+          onValueChange={setSelectedAgent}
+          style={styles.picker}
+        >
+          <Picker.Item label="All Agents" value="" />
+          {allUsers.map((username, i) => (
+            <Picker.Item key={i} label={username} value={username} />
+          ))}
+        </Picker>
 
-
-        <TouchableOpacity style={styles.generateButton} onPress={fetchDataAndNavigate}>
+        <TouchableOpacity
+          style={styles.generateButton}
+          onPress={fetchDataAndNavigate}
+        >
           <Text style={styles.generateButtonText}>Generate Net Pay Report</Text>
         </TouchableOpacity>
       </View>
@@ -406,10 +301,7 @@ const fetchDataAndNavigate = async () => {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: "#f5f5f5" 
-  },
+  container: { flex: 1, backgroundColor: "#f5f5f5" },
   header: {
     flexDirection: "row",
     padding: 16,
@@ -422,11 +314,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  headerText: { 
-    fontSize: 18, 
-    fontWeight: "bold", 
-    color: "#333" 
-  },
+  headerText: { fontSize: 18, fontWeight: "bold", color: "#333" },
   form: {
     backgroundColor: "#fff",
     margin: 16,
@@ -451,10 +339,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: "#553737ff",
-      color: '#000', // Black text for Android
-
+    color: "#000",
   },
-
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -462,14 +348,12 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 16,
   },
-  dateInput: { 
-    flex: 1 
-  },
-  label: { 
-    fontSize: 14, 
+  dateInput: { flex: 1 },
+  label: {
+    fontSize: 14,
     fontWeight: "600",
     marginBottom: 6,
-    color: "#666"
+    color: "#666",
   },
   dateText: {
     padding: 12,
@@ -489,11 +373,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 20,
   },
-  equalText: { 
-    color: "#fff", 
-    fontSize: 18, 
-    fontWeight: "bold" 
-  },
+  equalText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
   generateButton: {
     backgroundColor: "#ff2e63",
     padding: 16,
@@ -528,10 +408,5 @@ const styles = StyleSheet.create({
     borderLeft: 4,
     borderLeftColor: "#f44336",
   },
-
-  errorText: { 
-    color: "#d32f2f", 
-    fontSize: 14,
-    fontWeight: "500"
-  },
+  errorText: { color: "#d32f2f", fontSize: 14, fontWeight: "500" },
 });
