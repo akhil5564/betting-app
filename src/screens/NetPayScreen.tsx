@@ -43,8 +43,8 @@ export function extractBetType(typeStr) {
   return parts[parts.length - 1];
 }
 
-// export const Domain = "https://www.muralibajaj.site";
-export const  Domain ='http://130.265.1330.85:5000';
+export const Domain = "https://www.muralibajaj.site";
+// export const  Domain ='http://1310.265.1330.85:5000';
 // export const  Domain ='https://manu-netflix.onrender.com'
 export default function NetPayMultiDayScreen() {
   const navigation = useNavigation();
