@@ -161,6 +161,7 @@ const getAllDescendants = (username: string, usersList: any[]): string[] => {
           onValueChange={setSelectedTime}
           style={styles.picker}
         >
+          <Picker.Item label="All" value="All" />
           <Picker.Item label="DEAR 1 PM" value="DEAR 1 PM" />
           <Picker.Item label="LSK 3 PM" value="LSK 3 PM" />
           <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" />

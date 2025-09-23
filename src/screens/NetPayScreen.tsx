@@ -45,6 +45,9 @@ export function extractBetType(typeStr) {
 
 export const Domain = "https://www.muralibajaj.site";
 
+// export const  Domain ='https://www.muralibajaj.site'
+export const  Domain ='http://130.265.1330.85:5000';
+// export const  Domain ='https://manu-netflix.onrender.com'
 export default function NetPayMultiDayScreen() {
   const navigation = useNavigation();
   const [fromDate, setFromDate] = useState(new Date());
@@ -215,6 +218,7 @@ export default function NetPayMultiDayScreen() {
           onValueChange={setSelectedTime}
           style={styles.picker}
         >
+          <Picker.Item label="All" value="All" />
           <Picker.Item label="DEAR 1 PM" value="DEAR 1 PM" />
           <Picker.Item label="LSK 3 PM" value="LSK 3 PM" />
           <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" />
