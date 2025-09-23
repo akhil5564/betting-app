@@ -53,6 +53,7 @@ export default function WinningDetailed({ route }: any) {
     userRates={},
   } = route.params || {};
 console.log("paramssssss",route.params);
+console.log("userRates==========",userRates);
 
 const [selectedUser, setSelectedUser] = useState("All");
   const [rate, setRate] = useState<number>(10); // default until fetched
@@ -84,12 +85,33 @@ const [selectedUser, setSelectedUser] = useState("All");
       (e) => (e.username || e.createdBy) === user
     );
 
-    const totalSales = entries.reduce((sum, entry) => {
+  //   const totalSales = entries.reduce((sum, entry) => {
+  //   const betType = extractBetType(entry.type);
+  //   console.log("aaaaaaa",userRates);
+    
+  //   const rate = userRates[user]?.[betType] ?? 10;
+  //   return sum + (entry.count || 0) * rate;
+  // }, 0);
+  const totalSales = entries.reduce((sum, entry) => {
     const betType = extractBetType(entry.type);
-    const rate = userRates[user]?.[betType] ?? 10;
+  
+    // normalize draw name (to match backend keys)
+    const drawLabelMap: Record<string, string> = {
+      "LSK 3 PM": "KERALA 3 PM",
+      "DEAR 1 PM": "DEAR 1 PM",
+      "DEAR 6 PM": "DEAR 6 PM",
+      "DEAR 8 PM": "DEAR 8 PM",
+    };
+    const normalizedLabel = drawLabelMap[entry.timeLabel] || entry.timeLabel;
+  
+    // ✅ now lookup with both user + draw + betType
+    const rate =
+      userRates[user]?.[normalizedLabel]?.[betType] ??
+      10;
+  
     return sum + (entry.count || 0) * rate;
   }, 0);
-
+  
   const totalWinning = entries.reduce((sum, e) => sum + (e.winAmount || 0), 0);
 
     return {
