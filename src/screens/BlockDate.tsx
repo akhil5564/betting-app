@@ -11,8 +11,9 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
+import { Domain as API_URL } from "./NetPayScreen";
 
-const API_URL = "https://manu-netflix.onrender.com"; // ✅ API base
+// Using shared Domain from NetPayScreen for consistency across app
 
 const BlockDateScreen = () => {
   const [selectedTicket, setSelectedTicket] = useState("ALL");
@@ -25,7 +26,8 @@ const BlockDateScreen = () => {
   const fetchBlockedDates = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_URL}/blockedDates`);
+      const res = await axios.get(`${API_URL}/get-blocked-dates`);
+      console.log("Blocked dates:", res.data);
       setBlockedDates(res.data || []);
     } catch (error) {
       console.log("Error fetching blocked dates:", error);
@@ -47,8 +49,17 @@ const BlockDateScreen = () => {
         date: date.toISOString().split("T")[0], // YYYY-MM-DD
       };
 
-      await axios.post(`${API_URL}/blockDate`, newBlock);
-      Alert.alert("✅ Success", "Date blocked successfully");
+      let resp = await axios.post(`${API_URL}/add-blockdate`, newBlock);
+      // console.log("resp===============",resp.data.message);
+      let message = resp.data.message;
+      if(resp.data.status===1){
+        Alert.alert("✅ Success", message);
+      }else if(resp.data.status===2){
+        Alert.alert("⚠ Warning", message);
+      }else{
+        Alert.alert("❌ Error", message);
+      }
+      
       fetchBlockedDates();
     } catch (error) {
       console.log("Error blocking date:", error);
@@ -59,7 +70,7 @@ const BlockDateScreen = () => {
   // ✅ Delete Block Date
   const handleDelete = async (id: string) => {
     try {
-      await axios.delete(`${API_URL}/blockDate/${id}`);
+      await axios.delete(`${API_URL}/delete-blockdate/${id}`);
       fetchBlockedDates();
     } catch (error) {
       console.log("Error deleting blocked date:", error);

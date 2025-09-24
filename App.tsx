@@ -38,6 +38,7 @@ import WinningDetailed from './src/screens/WinningDetailed'
 import MORE from './src/screens/MORE'
 import TimeBlockSettingsScreen from './src/screens/TimeBlockSettingsScreen';
 import NetPaySummary from './src/screens/NetPaySummary';
+import BlockDateScreen from './src/screens/BlockDate';
 
 // Define the WinningReport interface
 interface WinningReport {
@@ -105,6 +106,7 @@ export type RootStackParamList = {
     userRates: { [username: string]: any };
   };
   timeset: undefined;
+  blockdate: undefined;
 };
 
 
@@ -149,6 +151,8 @@ export default function App() {
 
 <Stack.Screen name="Schemes" component={Schemes} />
 <Stack.Screen name="timeset" component={TimeBlockSettingsScreen} />
+
+<Stack.Screen name="blockdate" component={BlockDateScreen} />
 
         </Stack.Navigator>
       </NavigationContainer>
