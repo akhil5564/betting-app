@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -9,12 +9,13 @@ import {
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import axios from "axios";
+import { Domain as API_URL } from "./NetPayScreen";
 
-const API_URL = "https://manu-netflix.onrender.com"; // ✅ API
+// const API_URL = "https://manu-netflix.onrender.com"; // ✅ API
 const draws = ["LSK3", "DEAR1", "DEAR6", "DEAR8"];
 const types: ("admin" | "master" | "sub")[] = ["admin", "master", "sub"];
 
-const TimeSetScreen = ({ navigation }) => {
+const TimeSetScreen = ({ navigation }: any) => {
   const [selectedDraw, setSelectedDraw] = useState("LSK3");
 
   // Admin / Master / Sub times
@@ -41,6 +42,41 @@ const TimeSetScreen = ({ navigation }) => {
     draw: string;
     type: "start" | "end";
   } | null>(null);
+
+  // Load current block times for selected draw + role
+  useEffect(() => {
+    const loadCurrent = async () => {
+      try {
+        let url = `${API_URL}/blockTime/${encodeURIComponent(selectedDraw)}/${encodeURIComponent(editingFor)}`
+        console.log('URL:==============', url);
+        const res = await axios.get(
+          url
+        );
+        const data = res.data;
+        if (data?.blockTime && data?.unblockTime) {
+          const toDate = (hhmm: string) => {
+            const [h, m] = hhmm.split(":" ).map(Number);
+            const d = new Date();
+            d.setHours(h || 0, m || 0, 0, 0);
+            return d;
+          };
+          setDrawTimes((prev) => ({
+            ...prev,
+            [selectedDraw]: {
+              ...prev[selectedDraw],
+              [editingFor]: {
+                start: toDate(data.blockTime),
+                end: toDate(data.unblockTime),
+              },
+            },
+          }));
+        }
+      } catch (e) {
+        // If not found, keep defaults
+      }
+    };
+    loadCurrent();
+  }, [selectedDraw, editingFor]);
 
   const formatTime = (date: Date) =>
     date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });

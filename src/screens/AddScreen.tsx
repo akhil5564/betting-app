@@ -68,6 +68,7 @@ const AddScreen = () => {
 
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loggedInUser, setLoggedInUser] = useState('');
+  const [loggedInUserType, setLoggedInUserType] = useState('');
   const [selection, setSelection] = useState('');
   const [selectedMaster, setSelectedMaster] = useState('');
   const [selectedSub, setSelectedSub] = useState('');
@@ -151,6 +152,8 @@ useEffect(() => {
     const getUser = async () => {
       const username = await AsyncStorage.getItem('username');
       setLoggedInUser(username || '');
+      const userType = await AsyncStorage.getItem('usertype');
+      setLoggedInUserType(userType || '');
     };
 
     getUser();
@@ -652,7 +655,7 @@ if (checkboxes.range) {
       const res = await fetch(`${Domain}/entries/saveValidated`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entries, selectedAgent: selection || loggedInUser, createdBy: selection || loggedInUser, timeLabel: selectedTime, timeCode: selectedCode, toggleCount }),
+        body: JSON.stringify({ entries, selectedAgent: selection || loggedInUser, createdBy: selection || loggedInUser, timeLabel: selectedTime, timeCode: selectedCode, toggleCount, loggedInUserType }),
       });
 
       const data = await res.json();
