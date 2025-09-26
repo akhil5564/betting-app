@@ -28,7 +28,7 @@ const initialData = [
 
 const RateMasterScreen = () => {
   const navigation = useNavigation();
-  const [selectedDraw, setSelectedDraw] = useState('DEAR 1 PM');
+  const [selectedDraw, setSelectedDraw] = useState('LSK 3 PM');
   const [editAll, setEditAll] = useState(false);
   const [ticketData, setTicketData] = useState(initialData);
   const [checkedItems, setCheckedItems] = useState(initialData.map(() => true));
@@ -107,7 +107,7 @@ const RateMasterScreen = () => {
     try {
       if (!user || !draw) return;
       setIsLoadingRates(true);
-      const url = `${Domain}/rateMaster?user=${encodeURIComponent(user)}&draw=${encodeURIComponent(draw)}`;
+      const url = `${Domain}/ratemaster?user=${encodeURIComponent(user)}&draw=${encodeURIComponent(draw)}`;
       const response = await fetch(url);
       const data = await response.json();
 
@@ -136,7 +136,7 @@ const RateMasterScreen = () => {
   const fetchLoggedInUserRates = async (draw: string) => {
     try {
       if (!loggedInUser || !draw) return;
-      const url = `${Domain}/rateMaster?user=${encodeURIComponent(loggedInUser)}&draw=${encodeURIComponent(draw)}`;
+      const url = `${Domain}/ratemaster?user=${encodeURIComponent(loggedInUser)}&draw=${encodeURIComponent(draw)}`;
       const response = await fetch(url);
       const data = await response.json();
 
@@ -182,7 +182,7 @@ const RateMasterScreen = () => {
       }));
 
       if (selectedDraw === 'All') {
-        const allDraws = ['DEAR 1 PM', 'KERALA 3 PM', 'DEAR 6 PM', 'DEAR 8 PM'];
+        const allDraws = ['DEAR 1 PM', 'LSK 3 PM', 'DEAR 6 PM', 'DEAR 8 PM'];
         await Promise.all(
           allDraws.map((draw) =>
             saveRateData({ user: effectiveUser, draw, rates: modifiedRates })
@@ -256,7 +256,7 @@ const RateMasterScreen = () => {
         <View style={styles.pickerBox}>
           <Picker selectedValue={selectedDraw} onValueChange={setSelectedDraw}>
             <Picker.Item label="DEAR 1 PM" value="DEAR 1 PM" />
-            <Picker.Item label="KERALA 3 PM" value="KERALA 3 PM" />
+            <Picker.Item label="LSK 3 PM" value="LSK 3 PM" />
             <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" />
             <Picker.Item label="DEAR 8 PM" value="DEAR 8 PM" />
             <Picker.Item label="All" value="All" />

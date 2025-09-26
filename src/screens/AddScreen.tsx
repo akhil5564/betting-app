@@ -193,7 +193,7 @@ useEffect(() => {
         console.log('⚠️ Missing user or draw info');
         return;
       }
-      let url = `${Domain}/rateMaster?user=${encodeURIComponent(user)}&draw=${encodeURIComponent(selectedTime)}`
+      let url = `${Domain}/ratemaster?user=${encodeURIComponent(user)}&draw=${encodeURIComponent(selectedTime)}`
 
       const response = await fetch(url);
 
