@@ -1,10 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Picker } from '@react-native-picker/picker';
 
 import UserPickerRow from "./UserPickerRow";
 
-import axios from 'axios';
 
 import {
   View,
@@ -16,6 +14,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
@@ -50,9 +49,7 @@ const timeOptions = [
   { label: 'DEAR 6 PM', color: '#113d57', shortCode: 'D-6-' },
   { label: 'DEAR 8 PM', color: '#3c6248', shortCode: 'D-8-' },
 ];
-const focusNumberInput = () => {
-  numberInputRef.current?.focus();
-};
+// removed unused focus helper
 
 const AddScreen = () => {
 
@@ -202,7 +199,7 @@ useEffect(() => {
 
       const labelMap = ['super', 'box', 'ab', 'bc', 'ac', 'a', 'b', 'c'];
 
-      let ratesArray = [];
+      let ratesArray: number[] = [];
 
       if (data && Array.isArray(data.rates)) {
         ratesArray = data.rates.map((r) => r.rate);
@@ -662,7 +659,8 @@ if (checkboxes.range) {
       if (!res.ok) {
         // Show a friendly dialog summarizing remaining vs attempted
         const msg = data?.message || 'Limit exceeded. Nothing was saved.';
-        return alert(`⛔ ${msg}`);
+        Alert.alert('Limit', `⛔ ${msg}`);
+        return;
       }
 
       setBillNumber(data.billNo || '000000');
@@ -670,12 +668,12 @@ if (checkboxes.range) {
       setEntries([]);
 
       if (data.exceeded?.length > 0) {
-        alert(`⚠️ Some entries were adjusted:\n${data.exceeded.map((e: any) => `${e.type}: remaining ${e.remaining}, attempted ${e.attempted}, saved ${e.willAdd}`).join('\n')}`);
+        Alert.alert('Adjusted', `⚠️ Some entries were adjusted:\n${data.exceeded.map((e: any) => `${e.type}: remaining ${e.remaining}, attempted ${e.attempted}, saved ${e.willAdd}`).join('\n')}`);
       }
 
     } catch (err) {
       console.error(err);
-      alert('❌ Network error. Please try again.');
+      Alert.alert('Network', '❌ Network error. Please try again.');
     }
   };
 
