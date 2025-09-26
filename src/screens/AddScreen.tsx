@@ -198,10 +198,10 @@ useEffect(() => {
 
       const labelMap = ['super', 'box', 'ab', 'bc', 'ac', 'a', 'b', 'c'];
 
-      let ratesArray = [];
+      let ratesArray: number[] = [];
 
       if (data && Array.isArray(data.rates)) {
-        ratesArray = data.rates.map((r) => r.rate);
+        ratesArray = data.rates.map((r: any) => Number(r.rate));
       } else {
         ratesArray = new Array(8).fill(0);
       }
