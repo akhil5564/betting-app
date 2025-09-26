@@ -278,6 +278,11 @@ useEffect(() => {
     }
   }, [selection, selectedTime]);
 
+  // Clear entry table whenever draw/time changes
+  useEffect(() => {
+    setEntries([]);
+  }, [selectedTime]);
+
 
 
 
