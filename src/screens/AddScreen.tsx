@@ -50,9 +50,7 @@ const timeOptions = [
   { label: 'DEAR 6 PM', color: '#113d57', shortCode: 'D-6-' },
   { label: 'DEAR 8 PM', color: '#3c6248', shortCode: 'D-8-' },
 ];
-const focusNumberInput = () => {
-  numberInputRef.current?.focus();
-};
+// Removed obsolete focusNumberInput referencing out-of-scope ref
 
 const AddScreen = () => {
 
@@ -318,7 +316,7 @@ useEffect(() => {
       let ratesArray = [];
 
       if (data && Array.isArray(data.rates)) {
-        ratesArray = data.rates.map((r) => r.rate);
+        ratesArray = data.rates.map((r: { rate: number }) => r.rate);
       } else {
         ratesArray = new Array(8).fill(0);
       }
