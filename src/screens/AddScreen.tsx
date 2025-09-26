@@ -456,7 +456,7 @@ if (checkboxes.range) {
       }
     }
 
-  setEntries(prev => [...prev, ...newEntries]);
+  setEntries(prev => [...newEntries, ...prev]);
   setNumber('');
   setCount('');
   setBox('');
@@ -775,7 +775,7 @@ if (checkboxes.range) {
       }
     }
 
-    setEntries((prev) => [...prev, ...newEntries]);
+    setEntries((prev) => [...newEntries, ...prev]);
   }, [route?.params?.pastedText]);
 
 
