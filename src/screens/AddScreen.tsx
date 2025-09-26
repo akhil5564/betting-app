@@ -699,6 +699,11 @@ if (checkboxes.range) {
     }
   }, [route?.params?.selectedTime]);
 
+  // Clear entries table when draw time changes
+  useEffect(() => {
+    setEntries([]);
+  }, [selectedTime]);
+
   // Handle pasted text separately
   useEffect(() => {
     const pasted = route?.params?.pastedText;
