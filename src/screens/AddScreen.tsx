@@ -164,6 +164,114 @@ useEffect(() => {
       fetchAndShowRates(loggedInUser);
     }
   }, [loggedInUser]);
+
+  // Map UI label to backend draw key
+  const mapLabelToDrawKey = (label: string): 'LSK3' | 'DEAR1' | 'DEAR6' | 'DEAR8' => {
+    switch (label) {
+      case 'LSK 3 PM':
+        return 'LSK3';
+      case 'DEAR 1 PM':
+        return 'DEAR1';
+      case 'DEAR 6 PM':
+        return 'DEAR6';
+      case 'DEAR 8 PM':
+        return 'DEAR8';
+      default:
+        return 'LSK3';
+    }
+  };
+
+  // Check if today is blocked for this draw
+  const checkBlockedDate = async (drawKey: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`${Domain}/get-blocked-dates`);
+      const data = await res.json();
+      const today = new Date().toISOString().split('T')[0];
+      const blocked = Array.isArray(data)
+        ? data.some((item: any) => item?.date === today && (item?.ticket === 'ALL' || item?.ticket === drawKey))
+        : false;
+      if (blocked) {
+        alert(`⛔ Entries are blocked today for ${drawKey}.`);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      // If API fails, do not block by date
+      return false;
+    }
+  };
+
+  // Fetch block window for role and draw
+  const fetchBlockWindow = async (
+    drawKey: 'LSK3' | 'DEAR1' | 'DEAR6' | 'DEAR8',
+    role: string
+  ): Promise<{ blockTime?: string; unblockTime?: string } | null> => {
+    try {
+      const resp = await fetch(`${Domain}/blockTime/${encodeURIComponent(drawKey)}/${encodeURIComponent(role)}`);
+      if (!resp.ok) return null;
+      const json = await resp.json();
+      return { blockTime: json?.blockTime, unblockTime: json?.unblockTime };
+    } catch {
+      return null;
+    }
+  };
+
+  // Decide if current time is within the blocked window HH:mm - HH:mm
+  const isNowWithin = (startHHmm?: string, endHHmm?: string): boolean => {
+    if (!startHHmm || !endHHmm) return false;
+    const now = new Date();
+    const [sh, sm] = startHHmm.split(':').map(Number);
+    const [eh, em] = endHHmm.split(':').map(Number);
+    const start = new Date(now);
+    start.setHours(sh || 0, sm || 0, 0, 0);
+    const end = new Date(now);
+    end.setHours(eh || 0, em || 0, 0, 0);
+
+    // Normal same-day window
+    if (end > start) {
+      return now >= start && now < end;
+    }
+    // Overnight window (rare for draws, but handle gracefully)
+    return now >= start || now < end;
+  };
+
+  // Preflight checks before save
+  const canProceedToSave = async (): Promise<boolean> => {
+    const drawKey = mapLabelToDrawKey(selectedTime);
+
+    // 1) Block-date check
+    if (await checkBlockedDate(drawKey)) return false;
+
+    // 2) Block-time check for user role; fallback to local map on failure
+    const bw = await fetchBlockWindow(drawKey, (loggedInUserType || 'sub').toLowerCase());
+    if (bw && isNowWithin(bw.blockTime, bw.unblockTime)) {
+      alert(`⛔ Entry time is blocked for ${selectedTime} (${bw.blockTime} - ${bw.unblockTime}).`);
+      return false;
+    }
+
+    // Fallback to static times if API missing
+    if (!bw) {
+      const fallback = {
+        LSK3: '15:00',
+        DEAR1: '13:00',
+        DEAR6: '18:00',
+        DEAR8: '20:00',
+      } as Record<'LSK3' | 'DEAR1' | 'DEAR6' | 'DEAR8', string>;
+      const end = fallback[drawKey];
+      if (end) {
+        const [eh, em] = end.split(':').map(Number);
+        const now = new Date();
+        const endDate = new Date();
+        endDate.setHours(eh || 0, em || 0, 0, 0);
+        if (now >= endDate) {
+          alert(`⛔ Entry time is blocked for ${selectedTime}.`);
+          return false;
+        }
+      }
+    }
+
+    return true;
+  };
   useEffect(() => {
     if (selection) {
       fetchAndShowRates(selection);
@@ -649,6 +757,9 @@ if (checkboxes.range) {
 
   const handleSave = async () => {
     try {
+      // Check block date/time before saving
+      const allowed = await canProceedToSave();
+      if (!allowed) return;
       // const encodedLabel = encodeURIComponent(selectedTime);
       // console.log("sdddddddddd",encodedLabel);
 
