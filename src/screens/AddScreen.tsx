@@ -50,10 +50,6 @@ const timeOptions = [
   { label: 'DEAR 6 PM', color: '#113d57', shortCode: 'D-6-' },
   { label: 'DEAR 8 PM', color: '#3c6248', shortCode: 'D-8-' },
 ];
-const focusNumberInput = () => {
-  numberInputRef.current?.focus();
-};
-
 const AddScreen = () => {
 
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -468,9 +464,13 @@ if (checkboxes.range) {
   setRangeEnd('');
   setRangeCount('');
 
-  // ✅ Always jump back to Start input
+  // ✅ Focus appropriate input after adding
   setTimeout(() => {
-    startInputRef.current?.focus();
+    if (checkboxes.range || checkboxes.hundred || checkboxes.tripleOne) {
+      startInputRef.current?.focus();
+    } else {
+      numberInputRef.current?.focus();
+    }
   }, 50);
 };
 
