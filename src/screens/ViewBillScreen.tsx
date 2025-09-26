@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
 import { Domain } from './NetPayScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Entry = {
   _id: string;
@@ -38,6 +39,7 @@ const ViewBillScreen = () => {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingCount, setEditingCount] = useState<string>('');
+  const [actionsBlocked, setActionsBlocked] = useState(false);
 
   const sortEntries = (entries: Entry[]) => {
     return [...entries].sort((a, b) => {
@@ -60,7 +62,7 @@ const ViewBillScreen = () => {
         const data = JSON.parse(text);
 
         if (!Array.isArray(data) || data.length === 0) {
-          alert('⚠️ No data found for this bill number.');
+          Alert.alert('No Data', '⚠️ No data found for this bill number.');
           return;
         }
 
@@ -82,11 +84,11 @@ const ViewBillScreen = () => {
         });
       } catch (jsonError) {
         console.error('❌ JSON Parse Error:', jsonError);
-        alert('❌ Failed to load bill data. Try again.');
+        Alert.alert('Error', '❌ Failed to load bill data. Try again.');
       }
     } catch (error) {
       console.error('❌ Network Error:', error);
-      alert('❌ Failed to fetch bill data. Try again later.');
+      Alert.alert('Network', '❌ Failed to fetch bill data. Try again later.');
     } finally {
       setLoading(false);
     }
@@ -96,7 +98,43 @@ const ViewBillScreen = () => {
     fetchBill();
   }, []);
 
+  // After block time, sub users cannot edit/delete
+  useEffect(() => {
+    const checkBlock = async () => {
+      try {
+        const userType = await AsyncStorage.getItem('usertype');
+        if (userType !== 'sub') {
+          setActionsBlocked(false);
+          return;
+        }
+        const timeLabel = billMeta?.timeLabel;
+        if (!timeLabel) return;
+
+        const res = await fetch(`${Domain}/getBlockTime/${encodeURIComponent(timeLabel)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const blockTimeStr: string | undefined = data?.blockTime;
+        if (!blockTimeStr) return;
+
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        const [bh, bm] = blockTimeStr.split(':').map((v: string) => parseInt(v, 10));
+        const blockTime = new Date(`${todayStr}T${String(bh).padStart(2, '0')}:${String(bm).padStart(2, '0')}:00`);
+        setActionsBlocked(now >= blockTime);
+      } catch (e) {
+        // fail-open (no block) on error
+        setActionsBlocked(false);
+      }
+    };
+
+    checkBlock();
+  }, [billMeta?.timeLabel]);
+
   const startEditing = (id: string, currentCount: number) => {
+    if (actionsBlocked) {
+      Alert.alert('Blocked', 'Editing is disabled after block time for sub users.');
+      return;
+    }
     setEditingId(id);
     setEditingCount(String(currentCount));
   };
@@ -109,7 +147,7 @@ const ViewBillScreen = () => {
   const saveCountEdit = async (id: string) => {
     const newCount = parseInt(editingCount);
     if (isNaN(newCount) || newCount < 0) {
-      alert('Please enter a valid count');
+      Alert.alert('Invalid', 'Please enter a valid count');
       return;
     }
 
@@ -129,18 +167,22 @@ const ViewBillScreen = () => {
           )
         );
         cancelEditing();
-        alert('Count updated successfully');
+        Alert.alert('Success', 'Count updated successfully');
       } else {
         const result = await res.json();
-        alert(result.message || 'Failed to update count');
+        Alert.alert('Error', result.message || 'Failed to update count');
       }
     } catch (error) {
       console.error('❌ Error updating count:', error);
-      alert('Error saving changes');
+      Alert.alert('Error', 'Error saving changes');
     }
   };
 
   const confirmDeleteEntry = (id: string) => {
+    if (actionsBlocked) {
+      Alert.alert('Blocked', 'Deleting is disabled after block time for sub users.');
+      return;
+    }
     Alert.alert('Confirm Delete', 'Delete this entry?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -159,14 +201,14 @@ const ViewBillScreen = () => {
 
       if (res.ok) {
         setEntries((prev) => prev.filter((entry) => entry._id !== id));
-        alert('Deleted entry successfully');
+        Alert.alert('Deleted', 'Deleted entry successfully');
       } else {
         const result = await res.json();
-        alert(result.message || 'Failed to delete entry');
+        Alert.alert('Error', result.message || 'Failed to delete entry');
       }
     } catch (error) {
       console.error('❌ Delete entry error:', error);
-      alert('Error deleting entry');
+      Alert.alert('Error', 'Error deleting entry');
     }
   };
 
@@ -196,7 +238,9 @@ const ViewBillScreen = () => {
         )}
 
         <View style={[styles.actionButtons, styles.actionsCell]}>
-          {isEditing ? (
+          {actionsBlocked ? (
+            <Text style={{ color: '#999', fontWeight: 'bold' }}>Blocked</Text>
+          ) : isEditing ? (
             <>
               <TouchableOpacity onPress={() => saveCountEdit(item._id)} style={styles.iconBtn}>
                 <Ionicons name="checkmark" size={24} color="green" />
