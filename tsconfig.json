@@ -1,6 +1,15 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true
+    "strict": true,
+    "noImplicitAny": false,
+    "jsx": "react-jsx",
+    "target": "ES2019",
+    "moduleResolution": "bundler",
+    "module": "esnext",
+    "lib": ["ES2019", "DOM"],
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
   }
 }
