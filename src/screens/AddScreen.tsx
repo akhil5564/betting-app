@@ -470,7 +470,11 @@ if (checkboxes.range) {
 
   // ✅ Always jump back to Start input
   setTimeout(() => {
-    startInputRef.current?.focus();
+    if (checkboxes.range || checkboxes.hundred || checkboxes.tripleOne) {
+      startInputRef.current?.focus();
+    } else {
+      numberInputRef.current?.focus();
+    }
   }, 50);
 };
 
