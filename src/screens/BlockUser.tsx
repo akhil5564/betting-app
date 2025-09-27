@@ -7,13 +7,15 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import axios from 'axios';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Domain } from './NetPayScreen';
 
 // API call to toggle login block
-const blockLoginById = async (userId: string) => {
+const blockLoginById = async (userId) => {
   try {
-    const response = await axios.patch(`${Domain}/user/blockLogin/${userId}`);
+    const response = await axios.patch(
+      `${Domain}/user/blockLogin/${userId}`
+    );
     console.log('✅ User login block toggled:', response.data);
     return response.data;
   } catch (error) {
@@ -23,9 +25,11 @@ const blockLoginById = async (userId: string) => {
 };
 
 // API call to toggle sales block
-const blockSalesById = async (userId: string) => {
+const blockSalesById = async (userId) => {
   try {
-    const response = await axios.patch(`${Domain}/blockSales/${userId}`);
+    const response = await axios.patch(
+      `${Domain}/blockSales/${userId}`
+    );
     console.log('✅ User sales block toggled:', response.data);
     return response.data;
   } catch (error) {
@@ -35,12 +39,62 @@ const blockSalesById = async (userId: string) => {
 };
 
 const UserDetailScreen = () => {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
-  const { user: initialUser } = route.params || {};
-  const [user, setUser] = useState(initialUser);
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { user_id: initialUser, refresh, } = route.params || {};
+  console.log("initialUser",initialUser);
+  console.log("refresh",refresh);
+  const [user, setUser] = useState(null);
+  const [loading,setLoading]=useState(false)
+  useEffect(() => {
+    const fetchUserById = async () => {
+      if (!initialUser) {
+        console.log('No user ID provided');
+        return;
+      }
+      
+      // If we have updated user data from navigation, use it directly
+      // if (refresh && updatedUser) {
+      //   console.log('Using updated user data from navigation');
+      //   setUser(updatedUser);
+      //   return;
+      // }
+      
+      try {
+        setLoading(true);
+        const response = await fetch(`${Domain}/getusersByid`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ id: initialUser }),
+        });
+        const data = await response.json();
+        
+        if (data) {
+          console.log('User data received:', data);
+          setUser(data);
+        } else {
+          console.log('User not found');
+        }
+      } catch (error) {
+        console.error('Failed to fetch user:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    fetchUserById();
+  }, [initialUser, refresh]);
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <Text>Loading user data...</Text>
+      </View>
+    );
+  }
 
-  if (!user) {
+  if (!user || !user._id) {
     return (
       <View style={styles.center}>
         <Text>No user data provided.</Text>
@@ -50,9 +104,9 @@ const UserDetailScreen = () => {
 
   const handleToggleLoginBlock = async () => {
     try {
-      console.log('🔍 Toggling login block for User ID:', user._id);
+      console.log("🔍 Toggling login block for User ID:", user._id);
       const res = await blockLoginById(user._id);
-      setUser(res.user);
+      setUser(res.user); // Update state with backend response
       alert(
         res.user.blocked
           ? '✅ User login is now BLOCKED'
@@ -65,9 +119,9 @@ const UserDetailScreen = () => {
 
   const handleToggleSalesBlock = async () => {
     try {
-      console.log('🔍 Toggling sales block for User ID:', user._id);
+      console.log("🔍 Toggling sales block for User ID:", user._id);
       const res = await blockSalesById(user._id);
-      setUser(res.user);
+      setUser(res.user); // Update state with backend response
       alert(
         res.user.salesBlocked
           ? '✅ User sales is now BLOCKED'
@@ -87,11 +141,11 @@ const UserDetailScreen = () => {
         <View style={styles.row}>
           <View style={styles.column}>
             <Text style={styles.label}>Name</Text>
-            <Text style={styles.value}>{user.username}</Text>
+            <Text style={styles.value}>{user.username || '-'}</Text>
           </View>
           <View style={styles.column}>
             <Text style={styles.label}>Type</Text>
-            <Text style={styles.value}>{user.usertype}</Text>
+            <Text style={styles.value}>{user.usertype || '-'}</Text>
           </View>
           <View style={styles.column}>
             <Text style={styles.label}>Scheme</Text>
@@ -117,8 +171,12 @@ const UserDetailScreen = () => {
 
         {/* Row 3 — Login + Sales Block */}
         <View style={styles.buttonRow}>
+          {/* Login Block Button */}
           <TouchableOpacity
-            style={[styles.button, user.blocked ? styles.red : styles.green]}
+            style={[
+              styles.button,
+              user.blocked ? styles.red : styles.green
+            ]}
             onPress={handleToggleLoginBlock}
           >
             <Text style={styles.buttonText}>
@@ -126,8 +184,12 @@ const UserDetailScreen = () => {
             </Text>
           </TouchableOpacity>
 
+          {/* Sales Block Button */}
           <TouchableOpacity
-            style={[styles.button, user.salesBlocked ? styles.red : styles.green]}
+            style={[
+              styles.button,
+              user.salesBlocked ? styles.red : styles.green
+            ]}
             onPress={handleToggleSalesBlock}
           >
             <Text style={styles.buttonText}>
@@ -144,11 +206,7 @@ const UserDetailScreen = () => {
           >
             <Text style={styles.buttonText}>Blocked No</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, styles.pink]}
-            onPress={() => navigation.navigate('usercreditlimit')}
-          >
+          <TouchableOpacity style={[styles.button, styles.blue]}>
             <Text style={styles.buttonText}>Credit Limit</Text>
           </TouchableOpacity>
         </View>
@@ -212,6 +270,7 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     marginTop: 10,
+    gap: 10,
     justifyContent: 'space-between',
   },
   button: {
@@ -219,20 +278,19 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 5,
     alignItems: 'center',
-    marginHorizontal: 5, // ✅ instead of gap
   },
   buttonText: {
     color: '#fff',
     fontWeight: '600',
   },
   green: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#4CAF50', // ✅ Unblocked = Green
   },
   blue: {
     backgroundColor: '#2196F3',
   },
   red: {
-    backgroundColor: '#F44336',
+    backgroundColor: '#F44336', // ✅ Blocked = Red
   },
   pink: {
     backgroundColor: '#E91E63',
