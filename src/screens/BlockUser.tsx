@@ -158,7 +158,7 @@ const UserDetailScreen = () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.button, styles.pink]}
-            onPress={() => navigation.navigate('usercreditlimit', { user })}
+            onPress={() => navigation.navigate('UserCreditLimit', { user })}
           >
         </View>
 
