@@ -54,11 +54,10 @@ useEffect(() => {
   const filteredUsers = users.filter((user: any) =>
     user.name?.toLowerCase().includes(search.toLowerCase())
   );
-
   const renderUserCard = ({ item }: any) => (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => navigation.navigate('BlockUser', { user: item })}
+      onPress={() => navigation.navigate('BlockUser', { user_id:item._id })}
     >
       <View style={styles.cardRow}>
         <Text style={styles.label}>Name</Text>

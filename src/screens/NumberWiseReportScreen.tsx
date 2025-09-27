@@ -67,6 +67,7 @@ const NumberWiseReportScreen = () => {
       if (ticketNumber.trim()) url += `&number=${ticketNumber.trim()}`;
       if (selectedAgent.trim()) url += `&agent=${selectedAgent.trim()}`;
       if (groupWithoutName) url += `&group=true`;
+console.log("aaaaaaaaaaaaaaaaaa",url);
 
       const response = await fetch(url);
       const data = await response.json();
@@ -78,6 +79,7 @@ const NumberWiseReportScreen = () => {
             agent: selectedAgent,
             date: formattedDate,
             time: selectedTime,
+            noGroupName:groupWithoutName,
           },
         });
       } else {

@@ -19,7 +19,7 @@ const NumberWiseReportResult = () => {
   const renderItem = ({ item, index }: { item: any; index: number }) => (
     <View style={[styles.row, index % 2 === 0 ? styles.evenRow : styles.oddRow]}>
       <Text style={styles.cell}>{item.number}</Text>
-      <Text style={styles.cell}>{item.ticketName || '-'}</Text>
+      {!filters.noGroupName &&<Text style={styles.cell}>{item.ticketName || '-'}</Text>}
       <Text style={styles.cell}>{item.count}</Text>
       <Text style={styles.cell}>{item.total}</Text>
     </View>
@@ -43,7 +43,7 @@ const NumberWiseReportResult = () => {
 
       <View style={styles.tableHeader}>
         <Text style={[styles.cell, styles.headerCell]}>Number</Text>
-        <Text style={[styles.cell, styles.headerCell]}>Ticket</Text>
+        {!filters.noGroupName &&<Text style={[styles.cell, styles.headerCell]}>Ticket</Text>}
         <Text style={[styles.cell, styles.headerCell]}>Qty</Text>
         <Text style={[styles.cell, styles.headerCell]}>Total</Text>
       </View>

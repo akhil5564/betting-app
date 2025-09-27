@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import axios from 'axios';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Domain } from './NetPayScreen';
 
 // API call to toggle login block
@@ -41,10 +41,60 @@ const blockSalesById = async (userId) => {
 const UserDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { user: initialUser } = route.params || {};
-  const [user, setUser] = useState(initialUser);
+  const { user_id: initialUser, refresh, } = route.params || {};
+  console.log("initialUser",initialUser);
+  console.log("refresh",refresh);
+  const [user, setUser] = useState(null);
+  const [loading,setLoading]=useState(false)
+  useEffect(() => {
+    const fetchUserById = async () => {
+      if (!initialUser) {
+        console.log('No user ID provided');
+        return;
+      }
+      
+      // If we have updated user data from navigation, use it directly
+      // if (refresh && updatedUser) {
+      //   console.log('Using updated user data from navigation');
+      //   setUser(updatedUser);
+      //   return;
+      // }
+      
+      try {
+        setLoading(true);
+        const response = await fetch(`${Domain}/getusersByid`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ id: initialUser }),
+        });
+        const data = await response.json();
+        
+        if (data) {
+          console.log('User data received:', data);
+          setUser(data);
+        } else {
+          console.log('User not found');
+        }
+      } catch (error) {
+        console.error('Failed to fetch user:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    fetchUserById();
+  }, [initialUser, refresh]);
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <Text>Loading user data...</Text>
+      </View>
+    );
+  }
 
-  if (!user) {
+  if (!user || !user._id) {
     return (
       <View style={styles.center}>
         <Text>No user data provided.</Text>
@@ -91,11 +141,11 @@ const UserDetailScreen = () => {
         <View style={styles.row}>
           <View style={styles.column}>
             <Text style={styles.label}>Name</Text>
-            <Text style={styles.value}>{user.username}</Text>
+            <Text style={styles.value}>{user.username || '-'}</Text>
           </View>
           <View style={styles.column}>
             <Text style={styles.label}>Type</Text>
-            <Text style={styles.value}>{user.usertype}</Text>
+            <Text style={styles.value}>{user.usertype || '-'}</Text>
           </View>
           <View style={styles.column}>
             <Text style={styles.label}>Scheme</Text>

@@ -11,29 +11,31 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { Domain } from './NetPayScreen';
 
 const EditUserScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
 
-  const selectedUser = route.params?.user;
-
+  const selectedUser = (route.params as any)?.user;
+console.log("selectedUser",selectedUser);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [percentage, setPercentage] = useState('');
   const [scheme, setScheme] = useState('Scheme 1');
   const [allowSubStockist, setAllowSubStockist] = useState(false);
-  const [allowAgents, setAllowAgents] = useState(false);
+  // const [allowAgents, setAllowAgents] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (selectedUser) {
       setUsername(selectedUser.username || '');
-      setPassword(selectedUser.password || '');
+      setPassword(selectedUser.nonHashedPassword || selectedUser.password || '');
       setPercentage(selectedUser.percentage?.toString() || '0');
       setScheme(selectedUser.scheme || 'Scheme 1');
-      setAllowSubStockist(selectedUser.allowSubStockist || false);
-      setAllowAgents(selectedUser.allowAgents || false);
+      setAllowSubStockist(selectedUser.usertype==='master' ? true : false);
+      // setAllowAgents(selectedUser.allowAgents || false);
       setBlocked(selectedUser.blocked || false);
     }
   }, [selectedUser]);
@@ -45,6 +47,57 @@ const EditUserScreen = () => {
       console.log(`✅ User ${username} is unblocked.`);
     }
   }, [blocked]);
+
+  const handleUpdateUser = async () => {
+    if (!selectedUser) return;
+    
+    setLoading(true);
+    try {
+      const updateData = {
+        username: username,
+        password: password,
+        percentage: parseFloat(percentage) || 0,
+        scheme: scheme,
+        allowSubStockist: allowSubStockist,
+        // allowAgents: allowAgents,
+        blocked: blocked,
+        salesBlocked: blocked, // Assuming salesBlocked is the same as blocked
+      };
+
+      console.log('Updating user with data:', updateData);
+      
+      // Make API call to update user
+      const response = await fetch(`${Domain}/users/update/${selectedUser._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        console.log('User updated successfully:', result.message);
+        setLoading(false);
+        // Pass updated user data back to refresh the previous screen
+        navigation.navigate('BlockUser', { 
+          user_id: selectedUser._id,
+          refresh: true,
+          // updatedUser: result.user 
+        });
+      } else {
+        console.error('Failed to update user:', result.message);
+        setLoading(false);
+        // You could add an alert or toast notification here
+        alert(`Failed to update user: ${result.message}`);
+      }
+      
+    } catch (error) {
+      console.error('Error updating user:', error);
+      setLoading(false);
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -88,10 +141,10 @@ const EditUserScreen = () => {
           <Switch value={allowSubStockist} onValueChange={setAllowSubStockist} />
           <Text style={styles.checkboxLabel}>Allow create sub stockists</Text>
         </View>
-        <View style={styles.checkboxRow}>
+        {/* <View style={styles.checkboxRow}>
           <Switch value={allowAgents} onValueChange={setAllowAgents} />
           <Text style={styles.checkboxLabel}>Allow create agents</Text>
-        </View>
+        </View> */}
 
         <View style={styles.checkboxRow}>
           <Switch value={blocked} onValueChange={setBlocked} />
@@ -100,13 +153,22 @@ const EditUserScreen = () => {
 
         <View style={styles.buttonRow}>
           <TouchableOpacity
-            style={[styles.button, blocked ? styles.blockedButton : styles.saveButton]}
+            style={[
+              styles.button, 
+              blocked ? styles.blockedButton : styles.saveButton,
+              loading && styles.disabledButton
+            ]}
+            onPress={handleUpdateUser}
+            disabled={loading}
           >
-            <Text style={styles.buttonText}>{blocked ? 'SalesBlock' : 'Save'}</Text>
+            <Text style={styles.buttonText}>
+              {loading ? 'Updating...' : (blocked ? 'SalesBlock' : 'Save')}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.button, styles.cancelButton]}
             onPress={() => navigation.goBack()}
+            disabled={loading}
           >
             <Text style={styles.buttonText}>Cancel</Text>
           </TouchableOpacity>
@@ -206,6 +268,10 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: '#888',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+    opacity: 0.6,
   },
   buttonText: {
     color: '#fff',
