@@ -521,8 +521,11 @@ if (checkboxes.range) {
         setSelectedColor(timeOption.color);
         setSelectedCode(timeOption.shortCode);
       }
+      // Clear all table entries when time changes
+      setEntries([]);
     }
   }, [route?.params?.selectedTime]);
+
 
   // Handle pasted text separately
   useEffect(() => {
@@ -896,6 +899,8 @@ if (checkboxes.range) {
                           setSelectedCode(option.shortCode);
                           setSelectedColor(option.color);
                           setModalVisible(false);
+                          // Clear all table entries when time changes
+                          setEntries([]);
                         }}
                       >
                         <Text style={styles.modalItemText}>{option.label}</Text>
