@@ -15,8 +15,26 @@ const BlockNumbersScreen = () => {
   const [singleNumber, setSingleNumber] = useState('');
   const [seriesStart, setSeriesStart] = useState('');
   const [seriesEnd, setSeriesEnd] = useState('');
-  const [selectedGroup, setSelectedGroup] = useState('Group 1');
+  const [selectedGroup, setSelectedGroup] = useState<'group1' | 'group2' | 'group3' | null>(null);
   const [selectedTime, setSelectedTime] = useState('DEAR 1 PM');
+
+  // Inputs for groups
+  const [groupInputs, setGroupInputs] = useState({
+    A: '',
+    B: '',
+    C: '',
+    AB: '',
+    BC: '',
+    AC: '',
+    SUPER: '',
+    BOX: '',
+  });
+
+  const handleInputChange = (field: string, value: string, maxLen: number) => {
+    if (value.length <= maxLen) {
+      setGroupInputs((prev) => ({ ...prev, [field]: value }));
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -45,7 +63,7 @@ const BlockNumbersScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Input Fields based on block type */}
+        {/* Single Number */}
         {blockType === 'single' && (
           <TextInput
             style={styles.input}
@@ -56,6 +74,7 @@ const BlockNumbersScreen = () => {
           />
         )}
 
+        {/* Series */}
         {blockType === 'series' && (
           <View style={styles.seriesRow}>
             <TextInput
@@ -75,17 +94,91 @@ const BlockNumbersScreen = () => {
           </View>
         )}
 
-        {blockType === 'group' && (
-          <View style={styles.pickerWrapper}>
-            <Picker
-              selectedValue={selectedGroup}
-              onValueChange={setSelectedGroup}
-              style={styles.picker}
-            >
-              <Picker.Item label="Group 1" value="Group 1" />
-              <Picker.Item label="Group 2" value="Group 2" />
-              <Picker.Item label="Group 3" value="Group 3" />
-            </Picker>
+        {/* Radio Buttons for Group Selection (only for single/series) */}
+        {(blockType === 'single' || blockType === 'series') && (
+          <View style={styles.groupWrapper}>
+            {['group1', 'group2', 'group3'].map((grp) => (
+              <TouchableOpacity
+                key={grp}
+                style={styles.radioRow}
+                onPress={() => setSelectedGroup(grp as any)}
+              >
+                <View style={[styles.radioCircle, selectedGroup === grp && styles.radioSelected]} />
+                <Text style={styles.radioText}>{grp.toUpperCase()}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Inputs for selected group */}
+        {selectedGroup === 'group1' && (
+          <View>
+            <TextInput
+              style={styles.input}
+              placeholder="A"
+              value={groupInputs.A}
+              onChangeText={(val) => handleInputChange('A', val, 1)}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="B"
+              value={groupInputs.B}
+              onChangeText={(val) => handleInputChange('B', val, 1)}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="C"
+              value={groupInputs.C}
+              onChangeText={(val) => handleInputChange('C', val, 1)}
+              keyboardType="numeric"
+            />
+          </View>
+        )}
+
+        {selectedGroup === 'group2' && (
+          <View>
+            <TextInput
+              style={styles.input}
+              placeholder="AB"
+              value={groupInputs.AB}
+              onChangeText={(val) => handleInputChange('AB', val, 2)}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="BC"
+              value={groupInputs.BC}
+              onChangeText={(val) => handleInputChange('BC', val, 2)}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="AC"
+              value={groupInputs.AC}
+              onChangeText={(val) => handleInputChange('AC', val, 2)}
+              keyboardType="numeric"
+            />
+          </View>
+        )}
+
+        {selectedGroup === 'group3' && (
+          <View>
+            <TextInput
+              style={styles.input}
+              placeholder="SUPER"
+              value={groupInputs.SUPER}
+              onChangeText={(val) => handleInputChange('SUPER', val, 3)}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="BOX"
+              value={groupInputs.BOX}
+              onChangeText={(val) => handleInputChange('BOX', val, 3)}
+              keyboardType="numeric"
+            />
           </View>
         )}
 
@@ -136,9 +229,9 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: '#ccc',
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  seriesRow: { flexDirection: 'row' },
+  seriesRow: { flexDirection: 'row', marginBottom: 16 },
   pickerWrapper: {
     backgroundColor: '#fff',
     borderRadius: 6,
@@ -156,4 +249,16 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  groupWrapper: { marginBottom: 16 },
+  radioRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 6 },
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#f92659',
+    marginRight: 8,
+  },
+  radioSelected: { backgroundColor: '#f92659' },
+  radioText: { fontSize: 14, fontWeight: '600' },
 });

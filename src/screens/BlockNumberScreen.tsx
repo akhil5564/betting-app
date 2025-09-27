@@ -1,112 +1,264 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
-  ScrollView,
   StyleSheet,
+  SafeAreaView,
+  ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
 
-const BlockNumberScreen = () => {
+const BlockNumbersScreen = () => {
+  const [blockType, setBlockType] = useState<'single' | 'series' | 'group'>('single');
+  const [singleNumber, setSingleNumber] = useState('');
+  const [seriesStart, setSeriesStart] = useState('');
+  const [seriesEnd, setSeriesEnd] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState<'group1' | 'group2' | 'group3' | null>(null);
+  const [selectedTime, setSelectedTime] = useState('DEAR 1 PM');
+
+  // Inputs for groups
+  const [groupInputs, setGroupInputs] = useState({
+    A: '',
+    B: '',
+    C: '',
+    AB: '',
+    BC: '',
+    AC: '',
+    SUPER: '',
+    BOX: '',
+  });
+
+  const handleInputChange = (field: string, value: string, maxLen: number) => {
+    if (value.length <= maxLen) {
+      setGroupInputs((prev) => ({ ...prev, [field]: value }));
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="black" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Block</Text>
-      </View>
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.body}>
+        <Text style={styles.title}>Block Numbers</Text>
 
-      {/* Add Buttons */}
-      <View style={styles.addButtonsContainer}>
-        <TouchableOpacity style={styles.addButton}>
-          <Text style={styles.addButtonText}>➕ Number</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.addButton}>
-          <Text style={styles.addButtonText}>➕ Group</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.addButton}>
-          <Text style={styles.addButtonText}>➕ Series</Text>
-        </TouchableOpacity>
-      </View>
+        {/* Block Type Selection */}
+        <View style={styles.blockTypeRow}>
+          <TouchableOpacity
+            style={[styles.blockTypeBtn, blockType === 'single' && styles.activeBtn]}
+            onPress={() => setBlockType('single')}
+          >
+            <Text style={styles.blockTypeText}>Single Number</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.blockTypeBtn, blockType === 'series' && styles.activeBtn]}
+            onPress={() => setBlockType('series')}
+          >
+            <Text style={styles.blockTypeText}>Block Series</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.blockTypeBtn, blockType === 'group' && styles.activeBtn]}
+            onPress={() => setBlockType('group')}
+          >
+            <Text style={styles.blockTypeText}>Whole Group</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Table Header */}
-      <View style={styles.tableHeader}>
-        <Text style={styles.tableHeaderText}>GROUP</Text>
-        <Text style={styles.tableHeaderText}>TICKET</Text>
-        <Text style={styles.tableHeaderText}>NUMBER</Text>
-        <Text style={styles.tableHeaderText}>COUNT</Text>
-      </View>
+        {/* Single Number */}
+        {blockType === 'single' && (
+          <TextInput
+            style={styles.input}
+            placeholder="Enter single number"
+            value={singleNumber}
+            onChangeText={setSingleNumber}
+            keyboardType="numeric"
+          />
+        )}
 
-      {/* No Data Text */}
-      <ScrollView contentContainerStyle={styles.noDataContainer}>
-        <Text style={styles.noDataText}>No Data</Text>
+        {/* Series */}
+        {blockType === 'series' && (
+          <View style={styles.seriesRow}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginRight: 5 }]}
+              placeholder="Start"
+              value={seriesStart}
+              onChangeText={setSeriesStart}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={[styles.input, { flex: 1, marginLeft: 5 }]}
+              placeholder="End"
+              value={seriesEnd}
+              onChangeText={setSeriesEnd}
+              keyboardType="numeric"
+            />
+          </View>
+        )}
+
+        {/* Radio Buttons for Group Selection (only for single/series) */}
+        {(blockType === 'single' || blockType === 'series') && (
+          <View style={styles.groupWrapper}>
+            {['group1', 'group2', 'group3'].map((grp) => (
+              <TouchableOpacity
+                key={grp}
+                style={styles.radioRow}
+                onPress={() => setSelectedGroup(grp as any)}
+              >
+                <View style={[styles.radioCircle, selectedGroup === grp && styles.radioSelected]} />
+                <Text style={styles.radioText}>{grp.toUpperCase()}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Inputs for selected group */}
+        {selectedGroup === 'group1' && (
+          <View>
+            <TextInput
+              style={styles.input}
+              placeholder="A"
+              value={groupInputs.A}
+              onChangeText={(val) => handleInputChange('A', val, 1)}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="B"
+              value={groupInputs.B}
+              onChangeText={(val) => handleInputChange('B', val, 1)}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="C"
+              value={groupInputs.C}
+              onChangeText={(val) => handleInputChange('C', val, 1)}
+              keyboardType="numeric"
+            />
+          </View>
+        )}
+
+        {selectedGroup === 'group2' && (
+          <View>
+            <TextInput
+              style={styles.input}
+              placeholder="AB"
+              value={groupInputs.AB}
+              onChangeText={(val) => handleInputChange('AB', val, 2)}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="BC"
+              value={groupInputs.BC}
+              onChangeText={(val) => handleInputChange('BC', val, 2)}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="AC"
+              value={groupInputs.AC}
+              onChangeText={(val) => handleInputChange('AC', val, 2)}
+              keyboardType="numeric"
+            />
+          </View>
+        )}
+
+        {selectedGroup === 'group3' && (
+          <View>
+            <TextInput
+              style={styles.input}
+              placeholder="SUPER"
+              value={groupInputs.SUPER}
+              onChangeText={(val) => handleInputChange('SUPER', val, 3)}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="BOX"
+              value={groupInputs.BOX}
+              onChangeText={(val) => handleInputChange('BOX', val, 3)}
+              keyboardType="numeric"
+            />
+          </View>
+        )}
+
+        {/* Draw Time Selection */}
+        <Text style={styles.label}>Select Draw Time</Text>
+        <View style={styles.pickerWrapper}>
+          <Picker
+            selectedValue={selectedTime}
+            onValueChange={setSelectedTime}
+            style={styles.picker}
+          >
+            <Picker.Item label="DEAR 1 PM" value="DEAR 1 PM" />
+            <Picker.Item label="KERALA 3 PM" value="KERALA 3 PM" />
+            <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" />
+            <Picker.Item label="DEAR 8 PM" value="DEAR 8 PM" />
+          </Picker>
+        </View>
+
+        {/* Submit Button */}
+        <TouchableOpacity style={styles.button}>
+          <Text style={styles.buttonText}>Block Number(s)</Text>
+        </TouchableOpacity>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
-export default BlockNumberScreen;
+export default BlockNumbersScreen;
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, backgroundColor: '#f4f4f4', marginTop: 30 },
+  body: { padding: 20 },
+  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
+  blockTypeRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  blockTypeBtn: {
     flex: 1,
-    backgroundColor: '#F4F4F4',
-    marginTop: 30,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    backgroundColor: 'white',
-    elevation: 2,
-  },
-  backButton: {
-    marginRight: 10,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  addButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 10,
-    backgroundColor: 'white',
-    elevation: 2,
-  },
-  addButton: {
-    backgroundColor: '#F51659',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    padding: 12,
+    backgroundColor: '#ddd',
+    marginHorizontal: 5,
     borderRadius: 6,
-  },
-  addButtonText: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#D9003C',
-    justifyContent: 'space-around',
-    paddingVertical: 12,
-  },
-  tableHeaderText: {
-    flex: 1,
-    textAlign: 'center',
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  noDataContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
     alignItems: 'center',
   },
-  noDataText: {
-    fontSize: 16,
-    color: 'black',
+  activeBtn: { backgroundColor: '#f92659' },
+  blockTypeText: { color: '#000', fontWeight: 'bold' },
+  input: {
+    backgroundColor: '#fff',
+    borderRadius: 6,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    marginBottom: 12,
   },
+  seriesRow: { flexDirection: 'row', marginBottom: 16 },
+  pickerWrapper: {
+    backgroundColor: '#fff',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    marginBottom: 16,
+  },
+  picker: { height: 50, width: '100%' },
+  label: { fontSize: 14, marginBottom: 4 },
+  button: {
+    backgroundColor: '#f92659',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  groupWrapper: { marginBottom: 16 },
+  radioRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 6 },
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#f92659',
+    marginRight: 8,
+  },
+  radioSelected: { backgroundColor: '#f92659' },
+  radioText: { fontSize: 14, fontWeight: '600' },
 });

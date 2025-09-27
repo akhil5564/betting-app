@@ -11,11 +11,9 @@ import React, { useState } from 'react';
 import { Domain } from './NetPayScreen';
 
 // API call to toggle login block
-const blockLoginById = async (userId) => {
+const blockLoginById = async (userId: string) => {
   try {
-    const response = await axios.patch(
-      `${Domain}/user/blockLogin/${userId}`
-    );
+    const response = await axios.patch(`${Domain}/user/blockLogin/${userId}`);
     console.log('✅ User login block toggled:', response.data);
     return response.data;
   } catch (error) {
@@ -25,11 +23,9 @@ const blockLoginById = async (userId) => {
 };
 
 // API call to toggle sales block
-const blockSalesById = async (userId) => {
+const blockSalesById = async (userId: string) => {
   try {
-    const response = await axios.patch(
-      `${Domain}/blockSales/${userId}`
-    );
+    const response = await axios.patch(`${Domain}/blockSales/${userId}`);
     console.log('✅ User sales block toggled:', response.data);
     return response.data;
   } catch (error) {
@@ -39,8 +35,8 @@ const blockSalesById = async (userId) => {
 };
 
 const UserDetailScreen = () => {
-  const navigation = useNavigation();
-  const route = useRoute();
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { user: initialUser } = route.params || {};
   const [user, setUser] = useState(initialUser);
 
@@ -54,9 +50,9 @@ const UserDetailScreen = () => {
 
   const handleToggleLoginBlock = async () => {
     try {
-      console.log("🔍 Toggling login block for User ID:", user._id);
+      console.log('🔍 Toggling login block for User ID:', user._id);
       const res = await blockLoginById(user._id);
-      setUser(res.user); // Update state with backend response
+      setUser(res.user);
       alert(
         res.user.blocked
           ? '✅ User login is now BLOCKED'
@@ -69,9 +65,9 @@ const UserDetailScreen = () => {
 
   const handleToggleSalesBlock = async () => {
     try {
-      console.log("🔍 Toggling sales block for User ID:", user._id);
+      console.log('🔍 Toggling sales block for User ID:', user._id);
       const res = await blockSalesById(user._id);
-      setUser(res.user); // Update state with backend response
+      setUser(res.user);
       alert(
         res.user.salesBlocked
           ? '✅ User sales is now BLOCKED'
@@ -121,12 +117,8 @@ const UserDetailScreen = () => {
 
         {/* Row 3 — Login + Sales Block */}
         <View style={styles.buttonRow}>
-          {/* Login Block Button */}
           <TouchableOpacity
-            style={[
-              styles.button,
-              user.blocked ? styles.red : styles.green
-            ]}
+            style={[styles.button, user.blocked ? styles.red : styles.green]}
             onPress={handleToggleLoginBlock}
           >
             <Text style={styles.buttonText}>
@@ -134,12 +126,8 @@ const UserDetailScreen = () => {
             </Text>
           </TouchableOpacity>
 
-          {/* Sales Block Button */}
           <TouchableOpacity
-            style={[
-              styles.button,
-              user.salesBlocked ? styles.red : styles.green
-            ]}
+            style={[styles.button, user.salesBlocked ? styles.red : styles.green]}
             onPress={handleToggleSalesBlock}
           >
             <Text style={styles.buttonText}>
@@ -156,10 +144,13 @@ const UserDetailScreen = () => {
           >
             <Text style={styles.buttonText}>Blocked No</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.button, styles.pink]}
-            onPress={() => navigation.navigate('UserCreditLimit', { user })}
+            onPress={() => navigation.navigate('usercreditlimit')}
           >
+            <Text style={styles.buttonText}>Credit Limit</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Row 5 — Edit and Delete */}
@@ -221,7 +212,6 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     marginTop: 10,
-    gap: 10,
     justifyContent: 'space-between',
   },
   button: {
@@ -229,19 +219,20 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 5,
     alignItems: 'center',
+    marginHorizontal: 5, // ✅ instead of gap
   },
   buttonText: {
     color: '#fff',
     fontWeight: '600',
   },
   green: {
-    backgroundColor: '#4CAF50', // ✅ Unblocked = Green
+    backgroundColor: '#4CAF50',
   },
   blue: {
     backgroundColor: '#2196F3',
   },
   red: {
-    backgroundColor: '#F44336', // ✅ Blocked = Red
+    backgroundColor: '#F44336',
   },
   pink: {
     backgroundColor: '#E91E63',
