@@ -15,7 +15,12 @@ import { Domain } from './NetPayScreen';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const initialData = [
+type Ticket = { name: string; rate: string; assignRate: string };
+type User = { username: string; createdBy?: string };
+type RateItem = { label?: string; name?: string; rate: number | string };
+type SavePayload = { user: string; draw: string; rates: { label: string; rate: number }[] };
+
+const initialData: Ticket[] = [
   { name: 'SUPER', rate: '0', assignRate: '0' },
   { name: 'BOX', rate: '0', assignRate: '0' },
   { name: 'AB', rate: '0', assignRate: '0' },
@@ -28,24 +33,24 @@ const initialData = [
 
 const RateMasterScreen = () => {
   const navigation = useNavigation();
-  const [selectedDraw, setSelectedDraw] = useState('DEAR 1 PM');
+  const [selectedDraw, setSelectedDraw] = useState('LSK 3 PM');
   const [editAll, setEditAll] = useState(false);
-  const [ticketData, setTicketData] = useState(initialData);
-  const [checkedItems, setCheckedItems] = useState(initialData.map(() => true));
+  const [ticketData, setTicketData] = useState<Ticket[]>(initialData);
+  const [checkedItems, setCheckedItems] = useState<boolean[]>(initialData.map(() => true));
   const [isLoadingRates, setIsLoadingRates] = useState(false);
 
-  const [userList, setUserList] = useState<any[]>([]);
+  const [userList, setUserList] = useState<User[]>([]);
   const [selectedUser1, setSelectedUser1] = useState('');
   const [selectedUser2, setSelectedUser2] = useState('');
   const [selectedUser3, setSelectedUser3] = useState('');
   const [selectedUser4, setSelectedUser4] = useState('');
 
-  const [filteredUsers2, setFilteredUsers2] = useState<any[]>([]);
-  const [filteredUsers3, setFilteredUsers3] = useState<any[]>([]);
-  const [filteredUsers4, setFilteredUsers4] = useState<any[]>([]);
+  const [filteredUsers2, setFilteredUsers2] = useState<User[]>([]);
+  const [filteredUsers3, setFilteredUsers3] = useState<User[]>([]);
+  const [filteredUsers4, setFilteredUsers4] = useState<User[]>([]);
 
   const [loggedInUser, setLoggedInUser] = useState<string>('');
-  const [loggedInUserRates, setLoggedInUserRates] = useState<any[]>([]);
+  const [loggedInUserRates, setLoggedInUserRates] = useState<RateItem[]>([]);
 
   useEffect(() => {
     // Get logged-in user from AsyncStorage
@@ -70,19 +75,19 @@ const RateMasterScreen = () => {
 
   // Cascade filters
   useEffect(() => {
-    if (selectedUser1) setFilteredUsers2(userList.filter((u) => u.createdBy === selectedUser1));
+    if (selectedUser1) setFilteredUsers2(userList.filter((u: User) => u.createdBy === selectedUser1));
     else setFilteredUsers2([]);
     setSelectedUser2(''); setSelectedUser3(''); setSelectedUser4('');
   }, [selectedUser1]);
 
   useEffect(() => {
-    if (selectedUser2) setFilteredUsers3(userList.filter((u) => u.createdBy === selectedUser2));
+    if (selectedUser2) setFilteredUsers3(userList.filter((u: User) => u.createdBy === selectedUser2));
     else setFilteredUsers3([]);
     setSelectedUser3(''); setSelectedUser4('');
   }, [selectedUser2]);
 
   useEffect(() => {
-    if (selectedUser3) setFilteredUsers4(userList.filter((u) => u.createdBy === selectedUser3));
+    if (selectedUser3) setFilteredUsers4(userList.filter((u: User) => u.createdBy === selectedUser3));
     else setFilteredUsers4([]);
     setSelectedUser4('');
   }, [selectedUser3]);
@@ -107,7 +112,7 @@ const RateMasterScreen = () => {
     try {
       if (!user || !draw) return;
       setIsLoadingRates(true);
-      const url = `${Domain}/rateMaster?user=${encodeURIComponent(user)}&draw=${encodeURIComponent(draw)}`;
+      const url = `${Domain}/ratemaster?user=${encodeURIComponent(user)}&draw=${encodeURIComponent(draw)}`;
       const response = await fetch(url);
       const data = await response.json();
 
@@ -116,9 +121,9 @@ const RateMasterScreen = () => {
         return;
       }
 
-      const ratesArray = data.rates || data || [];
-      const updatedTicketData = initialData.map((item) => {
-        const match = ratesArray.find((r: any) => (r.label || r.name)?.toLowerCase() === item.name.toLowerCase());
+      const ratesArray: RateItem[] = data.rates || data || [];
+      const updatedTicketData = initialData.map((item: Ticket) => {
+        const match = ratesArray.find((r: RateItem) => (r.label || r.name)?.toLowerCase() === item.name.toLowerCase());
         const rateValue = match ? match.rate.toString() : '0';
         return { ...item, rate: rateValue, assignRate: rateValue };
       });
@@ -136,7 +141,7 @@ const RateMasterScreen = () => {
   const fetchLoggedInUserRates = async (draw: string) => {
     try {
       if (!loggedInUser || !draw) return;
-      const url = `${Domain}/rateMaster?user=${encodeURIComponent(loggedInUser)}&draw=${encodeURIComponent(draw)}`;
+      const url = `${Domain}/ratemaster?user=${encodeURIComponent(loggedInUser)}&draw=${encodeURIComponent(draw)}`;
       const response = await fetch(url);
       const data = await response.json();
 
@@ -146,7 +151,7 @@ const RateMasterScreen = () => {
         return;
       }
 
-      const ratesArray = data.rates || data || [];
+      const ratesArray: RateItem[] = data.rates || data || [];
       setLoggedInUserRates(ratesArray);
       console.log('Logged-in user:', loggedInUser);
       console.log('Logged-in user rates:', ratesArray);
@@ -176,13 +181,13 @@ const RateMasterScreen = () => {
         return;
       }
 
-      const modifiedRates = ticketData.map((item) => ({
+      const modifiedRates = ticketData.map((item: Ticket) => ({
         label: item.name.toUpperCase(),
         rate: Number(item.rate),
       }));
 
       if (selectedDraw === 'All') {
-        const allDraws = ['DEAR 1 PM', 'KERALA 3 PM', 'DEAR 6 PM', 'DEAR 8 PM'];
+        const allDraws = ['DEAR 1 PM', 'LSK 3 PM', 'DEAR 6 PM', 'DEAR 8 PM'];
         await Promise.all(
           allDraws.map((draw) =>
             saveRateData({ user: effectiveUser, draw, rates: modifiedRates })
@@ -198,7 +203,7 @@ const RateMasterScreen = () => {
     }
   };
 
-  const saveRateData = async (payload: any) => {
+  const saveRateData = async (payload: SavePayload) => {
     try {
       const response = await axios.post(`${Domain}/ratemaster`, payload, {
         headers: { 'Content-Type': 'application/json' },
@@ -212,7 +217,7 @@ const RateMasterScreen = () => {
     }
   };
 
-  const renderRow = ({ item, index }: any) => (
+  const renderRow = ({ item, index }: { item: Ticket; index: number }) => (
     <View style={styles.row}>
       <View style={styles.cellWithBorder}>
         <Checkbox
@@ -226,6 +231,12 @@ const RateMasterScreen = () => {
       </View>
       <View style={styles.cellWithBorder}>
         <Text style={styles.cellText}>{item.rate}</Text>
+        {!!loggedInUser && (
+          <Text style={styles.subCellText}>My: {(() => {
+            const match = loggedInUserRates.find((r: any) => (r?.label || r?.name)?.toLowerCase() === item.name.toLowerCase());
+            return match ? String(match.rate) : '0';
+          })()}</Text>
+        )}
       </View>
       <View style={styles.lastCell}>
         <TextInput
@@ -256,7 +267,7 @@ const RateMasterScreen = () => {
         <View style={styles.pickerBox}>
           <Picker selectedValue={selectedDraw} onValueChange={setSelectedDraw}>
             <Picker.Item label="DEAR 1 PM" value="DEAR 1 PM" />
-            <Picker.Item label="KERALA 3 PM" value="KERALA 3 PM" />
+            <Picker.Item label="LSK 3 PM" value="LSK 3 PM" />
             <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" />
             <Picker.Item label="DEAR 8 PM" value="DEAR 8 PM" />
             <Picker.Item label="All" value="All" />
@@ -360,4 +371,5 @@ const styles = StyleSheet.create({
   input: { fontSize: 14, paddingVertical: 4, paddingHorizontal: 6, textAlign: 'center', color: '#000', backgroundColor: 'transparent' },
   loadingContainer: { backgroundColor: '#fef3c7', padding: 10, marginHorizontal: 8, borderRadius: 6, alignItems: 'center' },
   loadingText: { color: '#92400e', fontWeight: 'bold', fontSize: 14 },
+  subCellText: { fontSize: 12, color: '#6b7280' },
 });
