@@ -38,7 +38,10 @@ import WinningDetailed from './src/screens/WinningDetailed'
 import MORE from './src/screens/MORE'
 import TimeBlockSettingsScreen from './src/screens/TimeBlockSettingsScreen';
 import NetPaySummary from './src/screens/NetPaySummary';
-import BlockDateScreen from './src/screens/BlockDate';
+import BlockDate from './src/screens/BlockDate';
+import Usernumberblock from './src/screens/Usernumberblock';
+import Usercreditlimit from './src/screens/Usercreditlimit';
+
 
 // Define the WinningReport interface
 interface WinningReport {
@@ -103,10 +106,10 @@ export type RootStackParamList = {
     selectedTime?: string;
     time: string;
     fromAccountSummary: boolean;
+    
     userRates: { [username: string]: any };
   };
   timeset: undefined;
-  blockdate: undefined;
 };
 
 
@@ -136,6 +139,8 @@ export default function App() {
           <Stack.Screen name="RateMaster" component={RateMasterScreen} />
           <Stack.Screen name="SelectResultScreen" component={SelectResultScreen} />
           <Stack.Screen name="BlockUser" component={BlockUser} />
+          <Stack.Screen name="Usernumberblock" component={Usernumberblock} />
+
           <Stack.Screen name="EditUserScreen" component={EditUserScreen} />
           <Stack.Screen name="BlockNumberScreen" component={BlockNumberScreen} />
           <Stack.Screen name="ResultEntry" component={ResultEntryScreen} />
@@ -151,8 +156,9 @@ export default function App() {
 
 <Stack.Screen name="Schemes" component={Schemes} />
 <Stack.Screen name="timeset" component={TimeBlockSettingsScreen} />
+<Stack.Screen name="blockdate" component={BlockDate} />
+<Stack.Screen name="usercreditlimit" component={Usercreditlimit} />
 
-<Stack.Screen name="blockdate" component={BlockDateScreen} />
 
         </Stack.Navigator>
       </NavigationContainer>
