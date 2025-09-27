@@ -50,38 +50,33 @@ const timeOptions = [
   { label: 'DEAR 6 PM', color: '#113d57', shortCode: 'D-6-' },
   { label: 'DEAR 8 PM', color: '#3c6248', shortCode: 'D-8-' },
 ];
-const focusNumberInput = () => {
-  numberInputRef.current?.focus();
-};
-
 const AddScreen = () => {
 
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'Add'>>();
   const [modalVisible, setModalVisible] = useState(false);
-  const [users, setUsers] = useState<string[]>([]);
-  type User = {
-    username: string;
-    usertype: string;
-    // add other fields if needed
-  };
-
-  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loggedInUser, setLoggedInUser] = useState('');
   const [loggedInUserType, setLoggedInUserType] = useState('');
   const [selection, setSelection] = useState('');
-  const [selectedMaster, setSelectedMaster] = useState('');
-  const [selectedSub, setSelectedSub] = useState('');
-  const masterUsers = allUsers.filter((u) => u.usertype === 'master');
-  const subUsers = allUsers.filter((u) => u.usertype === 'sub');
-  const [ticketLimits, setTicketLimits] = useState(null);
-  const numberRefs = useRef<TextInput[]>([]);
-const startInputRef = useRef<TextInput>(null);
+  const startInputRef = useRef<TextInput>(null);
 
-  const focusFirstEmptyNumber = () => {
-    const firstEmptyIndex = entries.findIndex(e => e.number.trim() === '');
-    if (firstEmptyIndex >= 0) {
-      numberRefs.current[firstEmptyIndex]?.focus();
+  const focusFirstEmptyInput = () => {
+    if (checkboxes.range || checkboxes.hundred || checkboxes.tripleOne) {
+      // For range mode, focus on the first empty field
+      if (!rangeStart) {
+        startInputRef.current?.focus();
+      } else if (!rangeEnd) {
+        endInputRef.current?.focus();
+      } else if (!rangeCount) {
+        countInputRefRange.current?.focus();
+      }
+    } else {
+      // For single number mode, focus on the first empty field
+      if (!number) {
+        numberInputRef.current?.focus();
+      } else if (!count) {
+        countInputRef.current?.focus();
+      }
     }
   };
 
@@ -91,6 +86,10 @@ const startInputRef = useRef<TextInput>(null);
   const numberInputRef = useRef<TextInput | null>(null);
 const rangeStartRef = useRef<TextInput>(null);
   const rangeEndRef = useRef<TextInput>(null);
+
+  const focusNumberInput = () => {
+    numberInputRef.current?.focus();
+  };
   const [assignedRates, setAssignedRates] = useState<Record<string, number>>({});
   const [rates, setRates] = useState<number[]>([]);
   const [billNumber, setBillNumber] = useState('');
@@ -117,8 +116,6 @@ const rangeStartRef = useRef<TextInput>(null);
   });
   const [entries, setEntries] = useState<Entry[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  // Define missing variables
-  const existingCounts: Record<string, number> = {};
   const drawBlockTimes: Record<string, string> = {
     'LSK3': '15:00',
     'D-1-': '13:00',
@@ -142,11 +139,6 @@ const rangeStartRef = useRef<TextInput>(null);
   }, []);
   
 
-useEffect(() => {
-  if (rangeStart === '' && rangeEnd === '' && rangeCount === '' && number === '') {
-    startInputRef.current?.focus();
-  }
-}, [rangeStart, rangeEnd, rangeCount, number]);
 
   useEffect(() => {
     const getUser = async () => {
@@ -163,7 +155,7 @@ useEffect(() => {
     if (loggedInUser) {
       fetchAndShowRates(loggedInUser);
     }
-  }, [loggedInUser]);
+  }, [loggedInUser, selectedTime]);
   useEffect(() => {
     if (selection) {
       fetchAndShowRates(selection);
@@ -173,18 +165,6 @@ useEffect(() => {
 
 
 
-  const isWithinAllowedTime = (code: string) => {
-    const now = new Date();
-    const today = now.toISOString().split('T')[0]; // yyyy-mm-dd
-
-    const blockTime = drawBlockTimes[code];
-    if (!blockTime) return true; // If no block time, allow
-
-    const [hour, minute] = blockTime.split(':').map(Number);
-    const blockDate = new Date(`${today}T${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`);
-
-    return now < blockDate;
-  };
 
   const fetchAndShowRates = async (user: string | null) => {
     try {
@@ -217,19 +197,8 @@ useEffect(() => {
     }
   };
 
-  // useEffect(() => {
-  //   axios.get('https://manu-netflix.onrender.com/getticketLimit')
-  //     .then((res) => setTicketLimits(res.data))
-  //     .catch((err) => console.error('Error loading ticket limits:', err));
-  // }, []);
 
 
-
-  useEffect(() => {
-    if (loggedInUser) {
-      fetchAndShowRates(loggedInUser);
-    }
-  }, [loggedInUser]);
 
   const handleClear = () => {
     setNumber('');
@@ -373,8 +342,8 @@ if (toggleCount === 3) {
           if (checkboxes.hundred) {
             numbers = Array.from({ length: 9 }, (_, idx) => (idx + 1) * 100);
           } else if (checkboxes.tripleOne) {
-// triple (111-style) numbers including 000
-numbers = [0, ...Array.from({ length: 9 }, (_, idx) => (idx + 1) * 111)];
+            // triple (111-style) numbers: 000, 111, 222, ..., 999
+            numbers = Array.from({ length: 10 }, (_, idx) => idx * 111);
           } else {
             numbers = Array.from({ length: end - start + 1 }, (_, idx) => start + idx);
           }
@@ -403,7 +372,8 @@ numbers = [0, ...Array.from({ length: 9 }, (_, idx) => (idx + 1) * 111)];
           if (checkboxes.hundred) {
             numbers = Array.from({ length: 9 }, (_, idx) => (idx + 1) * 100);
           } else if (checkboxes.tripleOne) {
-            numbers = Array.from({ length: 9 }, (_, idx) => (idx + 1) * 111);
+            // triple (111-style) numbers: 000, 111, 222, ..., 999
+            numbers = Array.from({ length: 10 }, (_, idx) => idx * 111);
           } else {
             numbers = Array.from({ length: end - start + 1 }, (_, idx) => start + idx);
           }
@@ -440,19 +410,15 @@ if (checkboxes.range) {
             addWithSetCheck(i.toString(), rangeC, type);
           }
         }
-   if (checkboxes.tripleOne) {
-  // Add 000 if it's in range
-  if (0 >= start && 0 <= end) {
-    addWithSetCheck('000', rangeC, type);
-  }
-
-  // Add 111, 222, ..., 999
-  for (let i = 111; i <= 999; i += 111) {
-    if (i >= start && i <= end) {
-      addWithSetCheck(i.toString(), rangeC, type);
-    }
-  }
-}
+        if (checkboxes.tripleOne) {
+          // triple (111-style) numbers: 000, 111, 222, ..., 999
+          for (let i = 0; i <= 9; i++) {
+            const num = i * 111;
+            if (num >= start && num <= end) {
+              addWithSetCheck(num.toString().padStart(3, '0'), rangeC, type);
+            }
+          }
+        }
 
       } else {
         if (!number || isNaN(singleC)) return;
@@ -489,7 +455,7 @@ if (checkboxes.range) {
     // 3. Filter entries that won't exceed limit
     const maxLimit = 50;
     const filteredEntries: any[] = [];
-    const tempCounts = { ...existingCounts }; // current DB count
+    const tempCounts: Record<string, number> = {}; // current DB count
 
     for (const entry of entries) {
       const currentDBCount = tempCounts[entry.number] || 0;
@@ -503,149 +469,6 @@ if (checkboxes.range) {
   };
 
 
-  // const handleSave = async () => {
-  //   try {
-  //     // Step 1: Get block/unblock time for draw
-  //     const blockRes = await fetch(`https://manu-netflix.onrender.com/getBlockTime/${encodeURIComponent(selectedTime)}`);
-  //     if (!blockRes.ok) throw new Error('Block time not set for this draw');
-  //     const blockData = await blockRes.json();
-  //     const { blockTime: blockTimeStr, unblockTime: unblockTimeStr } = blockData;
-  //     if (!blockTimeStr || !unblockTimeStr) throw new Error('Block or unblock time missing');
-
-  //     // Step 2: Check current time against block window
-  //     const now = new Date();
-  //     const todayStr = now.toISOString().split('T')[0];
-  //     const [bh, bm] = blockTimeStr.split(':').map(Number);
-  //     const [uh, um] = unblockTimeStr.split(':').map(Number);
-  //     const blockTime = new Date(`${todayStr}T${String(bh).padStart(2, '0')}:${String(bm).padStart(2, '0')}:00`);
-  //     const unblockTime = new Date(`${todayStr}T${String(uh).padStart(2, '0')}:${String(um).padStart(2, '0')}:00`);
-  //     if (now >= blockTime && now < unblockTime) {
-  //       alert('⛔ Entry time is blocked for this draw!');
-  //       return;
-  //     }
-
-  //     // Step 3: Fetch ticket limits (group1, group2, group3)
-  //     const limitsRes = await fetch('https://manu-netflix.onrender.com/getticketLimit');
-  //     if (!limitsRes.ok) throw new Error('Failed to fetch ticket limits');
-  //     const ticketLimits = await limitsRes.json();
-
-  //     // Merge groups for easier access: { A: '1000', AB: '100', SUPER: '150', ... }
-  //     const allLimits = {
-  //       ...ticketLimits.group1,
-  //       ...ticketLimits.group2,
-  //       ...ticketLimits.group3,
-  //     };
-
-  //     // Step 4: Sum counts per [type-number] from new entries
-  //     const newTotalByNumberType = {};
-  //     entries.forEach((entry) => {
-  //       const rawType = entry.type.replace(selectedCode, '').replace(/-/g, '').toUpperCase();
-  //       const key = `${rawType}-${entry.number}`;
-  //       newTotalByNumberType[key] = (newTotalByNumberType[key] || 0) + (entry.count || 1);
-  //     });
-
-  //     // Step 5: Fetch existing counts from backend
-  //     const numbersToCheck = Object.keys(newTotalByNumberType).map(key => key); // include type-number key
-  //     console.log('Fetching existing counts with keys:', numbersToCheck);
-
-  //     const countRes = await fetch('https://manu-netflix.onrender.com/countByNumber', {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify({
-  //         date: todayStr,
-  //         timeLabel: selectedTime,
-  //         keys: numbersToCheck, // send type-number keys to backend
-  //       }),
-  //     });
-
-  //     if (!countRes.ok) {
-  //       console.error('Failed to fetch counts:', countRes.status, countRes.statusText);
-  //       alert('Failed to fetch counts');
-  //       return;
-  //     }
-
-  //     const existingCounts = await countRes.json();
-  //     console.log('Existing counts from backend:', existingCounts);
-
-  //     // Step 6: Validate entries using limits + existing counts
-  //     const totalSoFar = { ...existingCounts }; // keyed by type-number
-  //     const validEntries = [];
-  //     const exceededEntries = [];
-
-  //     for (const entry of entries) {
-  //       const count = entry.count || 1;
-  //       const rawType = entry.type.replace(selectedCode, '').replace(/-/g, '').toUpperCase();
-  //       const key = `${rawType}-${entry.number}`;
-  //       const maxLimit = parseInt(allLimits[rawType] || '9999', 10);
-
-  //       const currentTotal = totalSoFar[key] || 0;
-  //       const allowedCount = maxLimit - currentTotal;
-
-  //       console.log(`[VALIDATION] ${key}: Max=${maxLimit}, Current=${currentTotal}, Attempted=${count}, Allowed=${allowedCount}`);
-
-  //       if (allowedCount <= 0) {
-  //         exceededEntries.push({ key, attempted: count, limit: maxLimit, existing: currentTotal, added: 0 });
-  //         continue;
-  //       }
-
-  //       if (count <= allowedCount) {
-  //         validEntries.push(entry);
-  //         totalSoFar[key] = currentTotal + count;
-  //       } else {
-  //         validEntries.push({ ...entry, count: allowedCount });
-  //         totalSoFar[key] = currentTotal + allowedCount;
-  //         exceededEntries.push({ key, attempted: count, limit: maxLimit, existing: currentTotal, added: allowedCount });
-  //       }
-  //     }
-
-  //     if (validEntries.length === 0) {
-  //       alert('⛔ All entries exceed the allowed limit for some numbers.');
-  //       return;
-  //     }
-  //     if (exceededEntries.length > 0) {
-  //       const exceededMsg = exceededEntries
-  //         .map(e => `${e.key}: Limit ${e.limit}, Existing ${e.existing}, Attempted ${e.attempted}, Added ${e.added}`)
-  //         .join('\n');
-  //       alert(`⚠️ Some entries were partially or fully skipped due to limits:\n${exceededMsg}`);
-  //     }
-
-  //     // Step 7: Save valid entries
-  //     const payload = {
-  //       entries: validEntries,
-  //       timeLabel: selectedTime,
-  //       timeCode: selectedCode,
-  //       selectedAgent: selection || loggedInUser,
-  //       createdBy: selection || loggedInUser,
-  //       toggleCount: toggleCount,
-  //     };
-
-  //     const controller = new AbortController();
-  //     const timeoutId = setTimeout(() => controller.abort(), 20000);
-  // console.log("sssssssssssssssssssssss1",payload);
-
-  //     const saveRes = await fetch('https://manu-netflix.onrender.com/addEntries', {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify(payload),
-  //       signal: controller.signal,
-  //     });
-
-  //     clearTimeout(timeoutId);
-
-  //     const saveData = await saveRes.json();
-  //     if (saveRes.ok) {
-  //       setBillNumber(saveData?.billNo || '000000');
-  //       setSuccessModalVisible(true);
-  //       setEntries([]);
-  //     } else {
-  //       alert('❌ Error saving: ' + (saveData?.message || 'Unknown error'));
-  //     }
-
-  //   } catch (err) {
-  //     console.error('❌ Save error:', err.message || err);
-  //     alert('❌ Network error. Please try again.');
-  //   }
-  // };
 
   const handleSave = async () => {
     try {
@@ -698,8 +521,11 @@ if (checkboxes.range) {
         setSelectedColor(timeOption.color);
         setSelectedCode(timeOption.shortCode);
       }
+      // Clear all table entries when time changes
+      setEntries([]);
     }
   }, [route?.params?.selectedTime]);
+
 
   // Handle pasted text separately
   useEffect(() => {
@@ -1073,6 +899,8 @@ if (checkboxes.range) {
                           setSelectedCode(option.shortCode);
                           setSelectedColor(option.color);
                           setModalVisible(false);
+                          // Clear all table entries when time changes
+                          setEntries([]);
                         }}
                       >
                         <Text style={styles.modalItemText}>{option.label}</Text>
