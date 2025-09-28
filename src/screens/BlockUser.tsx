@@ -202,7 +202,7 @@ const UserDetailScreen = () => {
         <View style={styles.buttonRow}>
           <TouchableOpacity
             style={[styles.button, styles.blue]}
-            onPress={() => navigation.navigate('BlockNumberScreen')}
+            onPress={() => navigation.navigate('BlockNumberScreen',{ user })}
           >
             <Text style={styles.buttonText}>Blocked No</Text>
           </TouchableOpacity>
