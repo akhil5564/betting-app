@@ -50,10 +50,6 @@ const timeOptions = [
   { label: 'DEAR 6 PM', color: '#113d57', shortCode: 'D-6-' },
   { label: 'DEAR 8 PM', color: '#3c6248', shortCode: 'D-8-' },
 ];
-const focusNumberInput = () => {
-  numberInputRef.current?.focus();
-};
-
 const AddScreen = () => {
 
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -202,10 +198,10 @@ useEffect(() => {
 
       const labelMap = ['super', 'box', 'ab', 'bc', 'ac', 'a', 'b', 'c'];
 
-      let ratesArray = [];
+      let ratesArray: number[] = [];
 
       if (data && Array.isArray(data.rates)) {
-        ratesArray = data.rates.map((r) => r.rate);
+        ratesArray = data.rates.map((r: any) => Number(r.rate));
       } else {
         ratesArray = new Array(8).fill(0);
       }
@@ -295,6 +291,11 @@ useEffect(() => {
     return Array.from(result);
   };
 
+  const formatNumberForWidth = (value: number): string => {
+    const width = toggleCount === 1 ? 1 : toggleCount === 2 ? 2 : 3;
+    return String(value).padStart(width, '0');
+  };
+
 const handleTogglePress = () => {
   setToggleCount((prev) => (prev === 3 ? 1 : prev + 1));
 };
@@ -380,7 +381,7 @@ numbers = [0, ...Array.from({ length: 9 }, (_, idx) => (idx + 1) * 111)];
           }
           numbers.forEach(i => {
             if (i >= start && i <= end) {
-              const num = i.toString();
+              const num = formatNumberForWidth(i);
               labels.forEach(lab => addWithSetCheck(num, rangeC, `${selectedCode}${lab}`));
             }
           });
@@ -409,7 +410,7 @@ numbers = [0, ...Array.from({ length: 9 }, (_, idx) => (idx + 1) * 111)];
           }
           numbers.forEach(i => {
             if (i >= start && i <= end) {
-              const num = i.toString();
+              const num = formatNumberForWidth(i);
               labels.forEach(lab => addWithSetCheck(num, rangeC, `${selectedCode}-${lab}`));
             }
           });
@@ -430,26 +431,26 @@ numbers = [0, ...Array.from({ length: 9 }, (_, idx) => (idx + 1) * 111)];
         if (isNaN(start) || isNaN(end) || isNaN(rangeC)) return;
 if (checkboxes.range) {
   for (let i = start; i <= end; i++) {
-    addWithSetCheck(i.toString(), rangeC, type);
+    addWithSetCheck(formatNumberForWidth(i), rangeC, type);
   }
 }
 
 
         if (checkboxes.hundred) {
           for (let i = start; i <= end; i += 100) {
-            addWithSetCheck(i.toString(), rangeC, type);
+            addWithSetCheck(formatNumberForWidth(i), rangeC, type);
           }
         }
    if (checkboxes.tripleOne) {
   // Add 000 if it's in range
   if (0 >= start && 0 <= end) {
-    addWithSetCheck('000', rangeC, type);
+    addWithSetCheck(formatNumberForWidth(0), rangeC, type);
   }
 
   // Add 111, 222, ..., 999
   for (let i = 111; i <= 999; i += 111) {
     if (i >= start && i <= end) {
-      addWithSetCheck(i.toString(), rangeC, type);
+      addWithSetCheck(formatNumberForWidth(i), rangeC, type);
     }
   }
 }
@@ -460,7 +461,7 @@ if (checkboxes.range) {
       }
     }
 
-  setEntries(prev => [...prev, ...newEntries]);
+  setEntries(prev => [...newEntries, ...prev]);
   setNumber('');
   setCount('');
   setBox('');
@@ -468,9 +469,13 @@ if (checkboxes.range) {
   setRangeEnd('');
   setRangeCount('');
 
-  // ✅ Always jump back to Start input
+  // ✅ Focus appropriate input after adding
   setTimeout(() => {
-    startInputRef.current?.focus();
+    if (checkboxes.range || checkboxes.hundred || checkboxes.tripleOne) {
+      startInputRef.current?.focus();
+    } else {
+      numberInputRef.current?.focus();
+    }
   }, 50);
 };
 
@@ -775,7 +780,7 @@ if (checkboxes.range) {
       }
     }
 
-    setEntries((prev) => [...prev, ...newEntries]);
+    setEntries((prev) => [...newEntries, ...prev]);
   }, [route?.params?.pastedText]);
 
 
