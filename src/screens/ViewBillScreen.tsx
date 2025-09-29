@@ -13,12 +13,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
 import { Domain } from './NetPayScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Entry = {
   _id: string;
   number: string;
   count: number;
   type: string;
+  timeOver: number;
 };
 
 type BillMeta = {
@@ -38,7 +40,9 @@ const ViewBillScreen = () => {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingCount, setEditingCount] = useState<string>('');
-
+  const storedUsertype = AsyncStorage.getItem('usertype');
+  console.log("dddddddddddd",storedUsertype);
+  
   const sortEntries = (entries: Entry[]) => {
     return [...entries].sort((a, b) => {
       if (a.type.toLowerCase() < b.type.toLowerCase()) return -1;
@@ -53,7 +57,11 @@ const ViewBillScreen = () => {
 
   const fetchBill = async () => {
     try {
-      const res = await fetch(`${Domain}/entries?billNo=${billId}`);
+      const storedUsertype = await AsyncStorage.getItem('usertype');
+      const res = await fetch(`${Domain}/get-entries-with-timeblock?billNo=${billId}&usertype=${encodeURIComponent(storedUsertype || '')}`);
+      let url =`${Domain}/get-entries-with-timeblock=${billId}&usertype=${encodeURIComponent(storedUsertype || '')}` 
+      console.log("dedddd",url);
+      
       const text = await res.text();
 
       try {
@@ -69,6 +77,7 @@ const ViewBillScreen = () => {
           number: entry.num || entry.number || '',
           count: entry.cnt || entry.count || 0,
           type: entry.type || '',
+          timeOver: entry.timeOver ?? 0,
         }));
 
         setEntries(sortEntries(parsedEntries));
@@ -207,12 +216,16 @@ const ViewBillScreen = () => {
             </>
           ) : (
             <>
-              <TouchableOpacity onPress={() => startEditing(item._id, item.count)} style={styles.iconBtn}>
-                <Ionicons name="pencil" size={22} color="#333" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => confirmDeleteEntry(item._id)} style={styles.iconBtn}>
-                <Ionicons name="trash" size={22} color="red" />
-              </TouchableOpacity>
+              {item?.timeOver === 0 ? (
+                <>
+                  <TouchableOpacity onPress={() => startEditing(item._id, item.count)} style={styles.iconBtn}>
+                    <Ionicons name="pencil" size={22} color="#333" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => confirmDeleteEntry(item._id)} style={styles.iconBtn}>
+                    <Ionicons name="trash" size={22} color="red" />
+                  </TouchableOpacity>
+                </>
+              ) : null}
             </>
           )}
         </View>
