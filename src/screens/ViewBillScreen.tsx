@@ -40,8 +40,14 @@ const ViewBillScreen = () => {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingCount, setEditingCount] = useState<string>('');
-  const storedUsertype = AsyncStorage.getItem('usertype');
-  console.log("dddddddddddd",storedUsertype);
+  const [storedUsertype, setStoredUsertype] = useState<string | null>(null);
+  useEffect(() => {
+  const storedUsertype = async () => {
+    const storedUsertype = await AsyncStorage.getItem('usertype');
+    setStoredUsertype(storedUsertype);
+  }
+  storedUsertype();
+  }, []);
   
   const sortEntries = (entries: Entry[]) => {
     return [...entries].sort((a, b) => {
@@ -59,8 +65,8 @@ const ViewBillScreen = () => {
     try {
       const storedUsertype = await AsyncStorage.getItem('usertype');
       const res = await fetch(`${Domain}/get-entries-with-timeblock?billNo=${billId}&usertype=${encodeURIComponent(storedUsertype || '')}`);
-      let url =`${Domain}/get-entries-with-timeblock=${billId}&usertype=${encodeURIComponent(storedUsertype || '')}` 
-      console.log("dedddd",url);
+      // let url =`${Domain}/get-entries-with-timeblock=${billId}&usertype=${encodeURIComponent(storedUsertype || '')}` 
+      // console.log("dedddd",url);
       
       const text = await res.text();
 
@@ -77,7 +83,7 @@ const ViewBillScreen = () => {
           number: entry.num || entry.number || '',
           count: entry.cnt || entry.count || 0,
           type: entry.type || '',
-          timeOver: entry.timeOver ?? 0,
+          // timeOver: entry.timeOver ?? 0,
         }));
 
         setEntries(sortEntries(parsedEntries));
@@ -126,7 +132,7 @@ const ViewBillScreen = () => {
       const res = await fetch(`${Domain}/updateEntryCount/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ count: newCount }),
+        body: JSON.stringify({ count: newCount ,userType:storedUsertype}),
       });
 
       if (res.ok) {
@@ -162,7 +168,7 @@ const ViewBillScreen = () => {
 
   const deleteEntryById = async (id: string) => {
     try {
-      const res = await fetch(`${Domain}/deleteEntryById/${id}`, {
+      const res = await fetch(`${Domain}/deleteEntryById/${id}/${storedUsertype}`, {
         method: 'DELETE',
       });
 
@@ -216,17 +222,13 @@ const ViewBillScreen = () => {
             </>
           ) : (
             <>
-              {item?.timeOver === 0 ? (
-                <>
                   <TouchableOpacity onPress={() => startEditing(item._id, item.count)} style={styles.iconBtn}>
                     <Ionicons name="pencil" size={22} color="#333" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => confirmDeleteEntry(item._id)} style={styles.iconBtn}>
                     <Ionicons name="trash" size={22} color="red" />
                   </TouchableOpacity>
-                </>
-              ) : null}
-            </>
+                </> 
           )}
         </View>
       </View>
