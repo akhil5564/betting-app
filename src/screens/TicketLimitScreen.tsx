@@ -40,28 +40,27 @@ const TicketLimitScreen = () => {
         const response = await fetch(`${Domain}/getticketLimit`);
         const result = await response.json();
         if (response.ok && result) {
-          setCurrentLimits({
-            group1: {
-              A: String(result.group1?.A ?? ''),
-              B: String(result.group1?.B ?? ''),
-              C: String(result.group1?.C ?? ''),
-            },
-            group2: {
-              AB: String(result.group2?.AB ?? ''),
-              BC: String(result.group2?.BC ?? ''),
-              AC: String(result.group2?.AC ?? ''),
-            },
-            group3: {
-              SUPER: String(result.group3?.SUPER ?? ''),
-              BOX: String(result.group3?.BOX ?? ''),
-            },
+          // Initialize state with existing values
+          setGroup1({
+            A: String(result.group1?.A ?? ''),
+            B: String(result.group1?.B ?? ''),
+            C: String(result.group1?.C ?? ''),
+          });
+          setGroup2({
+            AB: String(result.group2?.AB ?? ''),
+            BC: String(result.group2?.BC ?? ''),
+            AC: String(result.group2?.AC ?? ''),
+          });
+          setGroup3({
+            SUPER: String(result.group3?.SUPER ?? ''),
+            BOX: String(result.group3?.BOX ?? ''),
           });
         } else {
-          setLoadError(result?.message || 'Failed to load current ticket limits');
+          setLoadError(result?.message || 'Failed to load ticket limits');
         }
       } catch (error) {
         console.error('Load error:', error);
-        setLoadError('Error loading current ticket limits');
+        setLoadError('Error loading ticket limits');
       } finally {
         setIsLoading(false);
       }
@@ -70,34 +69,36 @@ const TicketLimitScreen = () => {
     fetchCurrentLimits();
   }, []);
 
-const handleSave = async () => {
-  const payload = {
-    group1,
-    group2,
-    group3,
-    createdBy: 'admin', // or fetch from AsyncStorage if needed
-  };
 
-  try {
-    const response = await fetch(`${Domain}/ticket-limit`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
 
-    const result = await response.json();
-    if (response.ok) {
-      alert('Ticket limits saved successfully!');
-    } else {
-      alert(result.message || 'Failed to save');
+  const handleSave = async () => {
+    const payload = {
+      group1,
+      group2,
+      group3,
+      createdBy: 'admin', // or fetch from AsyncStorage if needed
+    };
+
+    try {
+      const response = await fetch(`${Domain}/ticket-limit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        alert('Ticket limits saved successfully!');
+      } else {
+        alert(result.message || 'Failed to save');
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      alert('Error saving data');
     }
-  } catch (error) {
-    console.error('Save error:', error);
-    alert('Error saving data');
-  }
-};
+  };
 
 
   const renderInputRow = <T extends Record<string, string>>(
@@ -133,30 +134,32 @@ const handleSave = async () => {
       ) : loadError ? (
         <Text style={[styles.subtleText, { color: '#b00020' }]}>{loadError}</Text>
       ) : (
-        <View style={styles.currentSection}>
-          <Text style={styles.currentTitle}>Current Limits</Text>
-          <View style={styles.currentRow}>
-            <Text style={styles.currentItem}>A: {currentLimits.group1?.A || '-'}</Text>
-            <Text style={styles.currentItem}>B: {currentLimits.group1?.B || '-'}</Text>
-            <Text style={styles.currentItem}>C: {currentLimits.group1?.C || '-'}
-            </Text>
-          </View>
-          <View style={styles.currentRow}>
-            <Text style={styles.currentItem}>AB: {currentLimits.group2?.AB || '-'}</Text>
-            <Text style={styles.currentItem}>BC: {currentLimits.group2?.BC || '-'}</Text>
-            <Text style={styles.currentItem}>AC: {currentLimits.group2?.AC || '-'}</Text>
-          </View>
-          <View style={styles.currentRow}>
-            <Text style={styles.currentItem}>SUPER: {currentLimits.group3?.SUPER || '-'}</Text>
-            <Text style={styles.currentItem}>BOX: {currentLimits.group3?.BOX || '-'}</Text>
-          </View>
-        </View>
+        // <View style={styles.currentSection}>
+        //   <Text style={styles.currentTitle}>Current Limits</Text>
+        //   <View style={styles.currentRow}>
+        //     <Text style={styles.currentItem}>A: {currentLimits.group1?.A || '-'}</Text>
+        //     <Text style={styles.currentItem}>B: {currentLimits.group1?.B || '-'}</Text>
+        //     <Text style={styles.currentItem}>C: {currentLimits.group1?.C || '-'}
+        //     </Text>
+        //   </View>
+        //   <View style={styles.currentRow}>
+        //     <Text style={styles.currentItem}>AB: {currentLimits.group2?.AB || '-'}</Text>
+        //     <Text style={styles.currentItem}>BC: {currentLimits.group2?.BC || '-'}</Text>
+        //     <Text style={styles.currentItem}>AC: {currentLimits.group2?.AC || '-'}</Text>
+        //   </View>
+        //   <View style={styles.currentRow}>
+        //     <Text style={styles.currentItem}>SUPER: {currentLimits.group3?.SUPER || '-'}</Text>
+        //     <Text style={styles.currentItem}>BOX: {currentLimits.group3?.BOX || '-'}</Text>
+        //   </View>
+        // </View>
+
+        <>
+
+          {renderInputRow('Group 1', ['A', 'B', 'C'], group1, setGroup1)}
+          {renderInputRow('Group 2', ['AB', 'BC', 'AC'], group2, setGroup2)}
+          {renderInputRow('Group 3', ['SUPER', 'BOX'], group3, setGroup3)}
+        </>
       )}
-
-      {renderInputRow('Group 1', ['A', 'B', 'C'], group1, setGroup1)}
-      {renderInputRow('Group 2', ['AB', 'BC', 'AC'], group2, setGroup2)}
-      {renderInputRow('Group 3', ['SUPER', 'BOX'], group3, setGroup3)}
-
       <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
         <Text style={styles.saveButtonText}>Save</Text>
       </TouchableOpacity>
