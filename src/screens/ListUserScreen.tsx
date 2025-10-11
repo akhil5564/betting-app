@@ -9,18 +9,18 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Domain } from './NetPayScreen';
 
 const ListUsersScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute();
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-
+  const {refresh } = route.params || {};
   // Fetch users from API
-useEffect(() => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -46,10 +46,13 @@ useEffect(() => {
       setLoading(false);
     }
   };
-
+useEffect(() => {
   fetchUsers();
 }, []);
 
+useEffect(()=>{
+  fetchUsers()
+},[refresh])
 
   const filteredUsers = users.filter((user: any) =>
     user.name?.toLowerCase().includes(search.toLowerCase())

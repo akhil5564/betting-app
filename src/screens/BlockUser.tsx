@@ -4,6 +4,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import axios from 'axios';
@@ -24,6 +25,7 @@ const blockLoginById = async (userId) => {
   }
 };
 
+
 // API call to toggle sales block
 const blockSalesById = async (userId) => {
   try {
@@ -38,6 +40,18 @@ const blockSalesById = async (userId) => {
   }
 };
 
+const deleteUserById = async (userId) => {
+  try {
+    let url=`${Domain}/users/${userId}`    
+    const response = await axios.delete(url);
+    console.log('✅ User deleted:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error deleting user:', error);
+    throw error;
+  }
+};
+
 const UserDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -45,6 +59,7 @@ const UserDetailScreen = () => {
   console.log("initialUser",initialUser);
   console.log("refresh",refresh);
   const [user, setUser] = useState(null);
+  
   const [loading,setLoading]=useState(false)
   useEffect(() => {
     const fetchUserById = async () => {
@@ -131,7 +146,36 @@ const UserDetailScreen = () => {
       alert('❌ Failed to update sales block status.');
     }
   };
+  const handleDeleteUser = () => {
+    Alert.alert(
+      'Delete User',
+      'Are you sure you want to delete this user? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              
+              await deleteUserById(user._id);
+              alert('✅ User deleted successfully');
+              // Navigate back to the users list and trigger refresh if available
+              // If users list is under a route named 'UsersList', navigate to it:
+              navigation.navigate('ListUsers', { refresh: true });
 
+              // If using a parent callback for refresh via params, you could do something like:
+              // route.params?.onRefresh?.();
+
+              // navigation.goBack(); // Go back after deletion
+            } catch (err) {
+              alert('❌ Failed to delete user.');
+            }
+          } 
+        },
+      ]
+    );
+  };
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.header}>User Details</Text>
@@ -219,7 +263,10 @@ const UserDetailScreen = () => {
           >
             <Text style={styles.buttonText}>Edit User</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.red]}>
+          <TouchableOpacity 
+          style={[styles.button, styles.red]}
+          onPress={handleDeleteUser}
+          >
             <Text style={styles.buttonText}>Delete User</Text>
           </TouchableOpacity>
         </View>

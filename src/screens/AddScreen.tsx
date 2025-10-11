@@ -648,6 +648,7 @@ if (checkboxes.range) {
   // };
 
   const handleSave = async () => {
+    
     try {
       // const encodedLabel = encodeURIComponent(selectedTime);
       // console.log("sdddddddddd",encodedLabel);
@@ -655,7 +656,7 @@ if (checkboxes.range) {
       const res = await fetch(`${Domain}/entries/saveValidated`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entries, selectedAgent: selection || loggedInUser, createdBy: selection || loggedInUser, timeLabel: selectedTime, timeCode: selectedCode, toggleCount, loggedInUserType }),
+        body: JSON.stringify({ entries, selectedAgent: selection || loggedInUser, createdBy: selection || loggedInUser, timeLabel: selectedTime, timeCode: selectedCode, toggleCount, loggedInUserType,loggedInUser }),
       });
 
       const data = await res.json();
