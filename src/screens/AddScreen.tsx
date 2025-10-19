@@ -16,18 +16,28 @@ import {
   Modal,
   TouchableWithoutFeedback,
   ScrollView,
+  SafeAreaView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { TextInput as RNTextInput, } from 'react-native';
 import { Domain } from './NetPayScreen';
+
+// ✅ Get screen dimensions
 const { width, height } = Dimensions.get('window');
+
+// ✅ Calculate responsive dimensions with 20px bottom space
+const FOOTER_HEIGHT = 70; // Fixed footer height
+const SAFE_AREA_BOTTOM = Platform.OS === 'ios' ? 34 : 0; // iPhone safe area
+const BOTTOM_FREE_SPACE = 20; // ✅ Added 20px free space at bottom
 
 type Entry = {
   number: string;
   count: number;
   type: string;
   timeLabel?: string;
+  name?: string; 
 };
 
 type RootStackParamList = {
@@ -37,51 +47,51 @@ type RootStackParamList = {
   Main: undefined;
 };
 
-
 const checkboxOptions = [
   { key: 'range', label: 'Range' },
   { key: 'set', label: 'Set' },
   { key: 'hundred', label: '100' },
   { key: 'tripleOne', label: '111' },
 ];
+
 const timeOptions = [
   { label: 'LSK 3 PM', color: '#f15b87', shortCode: 'LSK3' },
   { label: 'DEAR 1 PM', color: '#1fb9cc', shortCode: 'D-1-' },
   { label: 'DEAR 6 PM', color: '#113d57', shortCode: 'D-6-' },
   { label: 'DEAR 8 PM', color: '#3c6248', shortCode: 'D-8-' },
 ];
-const focusNumberInput = () => {
-  numberInputRef.current?.focus();
+
+const TIME_SHORTCODES = {
+  'LSK 3 PM': 'LSK3-',
+  'DEAR 1 PM': 'D-1-',
+  'DEAR 6 PM': 'D-6-', 
+  'DEAR 8 PM': 'D-8-'
 };
 
 const AddScreen = () => {
-
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'Add'>>();
   const [modalVisible, setModalVisible] = useState(false);
-  const [users, setUsers] = useState<string[]>([]);
-  type User = {
-    username: string;
-    usertype: string;
-    // add other fields if needed
-  };
-
-  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loggedInUser, setLoggedInUser] = useState('');
-  const [loggedInUserType, setLoggedInUserType] = useState('');
+  const [loggedInUserType, setLoggedInUserType] = useState('sub');
   const [selection, setSelection] = useState('');
-  const [selectedMaster, setSelectedMaster] = useState('');
-  const [selectedSub, setSelectedSub] = useState('');
-  const masterUsers = allUsers.filter((u) => u.usertype === 'master');
-  const subUsers = allUsers.filter((u) => u.usertype === 'sub');
-  const [ticketLimits, setTicketLimits] = useState(null);
-  const numberRefs = useRef<TextInput[]>([]);
-const startInputRef = useRef<TextInput>(null);
+  const startInputRef = useRef<TextInput>(null);
 
-  const focusFirstEmptyNumber = () => {
-    const firstEmptyIndex = entries.findIndex(e => e.number.trim() === '');
-    if (firstEmptyIndex >= 0) {
-      numberRefs.current[firstEmptyIndex]?.focus();
+  const focusFirstEmptyInput = () => {
+    if (checkboxes.range || checkboxes.hundred || checkboxes.tripleOne) {
+      if (!rangeStart) {
+        startInputRef.current?.focus();
+      } else if (!rangeEnd) {
+        endInputRef.current?.focus();
+      } else if (!rangeCount) {
+        countInputRefRange.current?.focus();
+      }
+    } else {
+      if (!number) {
+        numberInputRef.current?.focus();
+      } else if (!count) {
+        countInputRef.current?.focus();
+      }
     }
   };
 
@@ -89,12 +99,16 @@ const startInputRef = useRef<TextInput>(null);
   const [selectedTime, setSelectedTime] = useState('LSK 3 PM');
   const [selectedCode, setSelectedCode] = useState('LSK3');
   const numberInputRef = useRef<TextInput | null>(null);
-const rangeStartRef = useRef<TextInput>(null);
+  const rangeStartRef = useRef<TextInput>(null);
   const rangeEndRef = useRef<TextInput>(null);
+
+  const focusNumberInput = () => {
+    numberInputRef.current?.focus();
+  };
+  
   const [assignedRates, setAssignedRates] = useState<Record<string, number>>({});
   const [rates, setRates] = useState<number[]>([]);
   const [billNumber, setBillNumber] = useState('');
-  const { width, height } = Dimensions.get('window');
   const [rangeStart, setRangeStart] = useState('');
   const [rangeEnd, setRangeEnd] = useState('');
   const [rangeCount, setRangeCount] = useState('');
@@ -117,8 +131,7 @@ const rangeStartRef = useRef<TextInput>(null);
   });
   const [entries, setEntries] = useState<Entry[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  // Define missing variables
-  const existingCounts: Record<string, number> = {};
+
   const drawBlockTimes: Record<string, string> = {
     'LSK3': '15:00',
     'D-1-': '13:00',
@@ -135,28 +148,19 @@ const rangeStartRef = useRef<TextInput>(null);
   useEffect(() => {
     const load = async () => {
       const username = await AsyncStorage.getItem('username');
-      fetchAndShowRates(username);
+      const userType = await AsyncStorage.getItem('usertype');
+      
+      console.log('📱 Loaded from AsyncStorage:', { username, userType });
+      
+      setLoggedInUser(username || '');
+      setLoggedInUserType(userType || 'sub');
+      
+      if (username) {
+        fetchAndShowRates(username);
+      }
     };
 
     load();
-  }, []);
-  
-
-useEffect(() => {
-  if (rangeStart === '' && rangeEnd === '' && rangeCount === '' && number === '') {
-    startInputRef.current?.focus();
-  }
-}, [rangeStart, rangeEnd, rangeCount, number]);
-
-  useEffect(() => {
-    const getUser = async () => {
-      const username = await AsyncStorage.getItem('username');
-      setLoggedInUser(username || '');
-      const userType = await AsyncStorage.getItem('usertype');
-      setLoggedInUserType(userType || '');
-    };
-
-    getUser();
   }, []);
 
   useEffect(() => {
@@ -164,72 +168,221 @@ useEffect(() => {
       fetchAndShowRates(loggedInUser);
     }
   }, [loggedInUser]);
+
+  const mapLabelToDrawKey = (label: string): 'LSK3' | 'DEAR1' | 'DEAR6' | 'DEAR8' => {
+    const mapping: Record<string, 'LSK3' | 'DEAR1' | 'DEAR6' | 'DEAR8'> = {
+      'LSK 3 PM': 'LSK3',
+      'KERALA 3 PM': 'LSK3',
+      'DEAR 1 PM': 'DEAR1',
+      'DEAR 6 PM': 'DEAR6',
+      'DEAR 8 PM': 'DEAR8',
+    };
+    
+    return mapping[label] || 'LSK3';
+  };
+
+  const checkBlockedDate = async (drawKey: string): Promise<boolean> => {
+    try {
+      console.log('🔍 Checking blocked date for:', drawKey);
+      const res = await fetch(`${Domain}/get-blocked-dates`);
+      const data = await res.json();
+      const today = new Date().toISOString().split('T')[0];
+      
+      const blocked = Array.isArray(data)
+        ? data.some((item: any) => {
+            const matchesDate = item?.date === today;
+            const matchesTicket = item?.ticket === 'ALL' || item?.ticket === drawKey;
+            console.log('📅 Checking block:', { 
+              itemDate: item?.date, 
+              today, 
+              itemTicket: item?.ticket, 
+              drawKey, 
+              matchesDate, 
+              matchesTicket 
+            });
+            return matchesDate && matchesTicket;
+          })
+        : false;
+        
+      if (blocked) {
+        alert(`⛔ Entries are blocked today for ${drawKey}.`);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('❌ Error checking blocked date:', err);
+      return false;
+    }
+  };
+
+  const fetchBlockWindow = async (
+    drawKey: 'LSK3' | 'DEAR1' | 'DEAR6' | 'DEAR8',
+    role: string
+  ): Promise<{ blockTime?: string; unblockTime?: string } | null> => {
+    try {
+      console.log('🔍 Fetching block window for:', { drawKey, role });
+      
+      const urls = [
+        `${Domain}/blockTime/${encodeURIComponent(drawKey)}/${encodeURIComponent(role)}`,
+        `${Domain}/blockTime/${encodeURIComponent(drawKey)}/${encodeURIComponent(role.toLowerCase())}`,
+        `${Domain}/blockTime/${encodeURIComponent(drawKey)}/${encodeURIComponent(role.toUpperCase())}`,
+      ];
+      
+      for (const url of urls) {
+        try {
+          console.log('🌐 Trying URL:', url);
+          const resp = await fetch(url);
+          
+          if (resp.ok) {
+            const json = await resp.json();
+            console.log('✅ Block window response:', json);
+            return { blockTime: json?.blockTime, unblockTime: json?.unblockTime };
+          } else {
+            console.log('⚠️ Response not OK:', resp.status, resp.statusText);
+          }
+        } catch (urlError) {
+          console.log('❌ URL failed:', url, urlError);
+          continue;
+        }
+      }
+      
+      console.log('❌ All URLs failed for block window');
+      return null;
+    } catch (error) {
+      console.error('❌ Error fetching block window:', error);
+      return null;
+    }
+  };
+
+  const isNowWithin = (startHHmm?: string, endHHmm?: string): boolean => {
+    if (!startHHmm || !endHHmm) return false;
+    
+    console.log('⏰ Checking time window:', { startHHmm, endHHmm });
+    
+    const now = new Date();
+    const [sh, sm] = startHHmm.split(':').map(Number);
+    const [eh, em] = endHHmm.split(':').map(Number);
+    const start = new Date(now);
+    start.setHours(sh || 0, sm || 0, 0, 0);
+    const end = new Date(now);
+    end.setHours(eh || 0, em || 0, 0, 0);
+
+    console.log('🕐 Time comparison:', {
+      now: now.toTimeString(),
+      start: start.toTimeString(),
+      end: end.toTimeString()
+    });
+
+    if (end > start) {
+      const isWithin = now >= start && now < end;
+      console.log('📊 Is within window:', isWithin);
+      return isWithin;
+    }
+    const isWithin = now >= start || now < end;
+    console.log('📊 Is within overnight window:', isWithin);
+    return isWithin;
+  };
+
+  const canProceedToSave = async (): Promise<boolean> => {
+    const drawKey = mapLabelToDrawKey(selectedTime);
+
+    console.log('🔍 Checking time block for:', {
+      selectedTime,
+      drawKey,
+      loggedInUserType,
+      loggedInUser
+    });
+
+    if (await checkBlockedDate(drawKey)) return false;
+
+    const userRole = loggedInUserType || 'sub';
+    console.log('👤 User role for time check:', userRole);
+    
+    const bw = await fetchBlockWindow(drawKey, userRole.toLowerCase());
+    console.log('⏰ Block window response:', bw);
+    
+    if (bw && bw.blockTime && bw.unblockTime) {
+      const isBlocked = isNowWithin(bw.blockTime, bw.unblockTime);
+      console.log('🚫 Is currently blocked?', isBlocked);
+      
+      if (isBlocked) {
+        alert(`⛔ Entry time is blocked for ${selectedTime} (${bw.blockTime} - ${bw.unblockTime}) for ${userRole} users.`);
+        return false;
+      }
+    } else {
+      console.log('⚠️ No block window from API, using fallback');
+      const fallback = {
+        LSK3: '15:00',
+        DEAR1: '13:00',
+        DEAR6: '18:00',
+        DEAR8: '20:00',
+      } as Record<'LSK3' | 'DEAR1' | 'DEAR6' | 'DEAR8', string>;
+      
+      const endTime = fallback[drawKey];
+      if (endTime) {
+        const [eh, em] = endTime.split(':').map(Number);
+        const now = new Date();
+        const endDate = new Date();
+        endDate.setHours(eh || 0, em || 0, 0, 0);
+        
+        if (now >= endDate) {
+          alert(`⛔ Entry time is blocked for ${selectedTime} after ${endTime}.`);
+          return false;
+        }
+      }
+    }
+
+    console.log('✅ Time check passed, allowing entry');
+    return true;
+  };
+
   useEffect(() => {
     if (selection) {
       fetchAndShowRates(selection);
     }
   }, [selection, selectedTime]);
 
-
-
-
-  const isWithinAllowedTime = (code: string) => {
-    const now = new Date();
-    const today = now.toISOString().split('T')[0]; // yyyy-mm-dd
-
-    const blockTime = drawBlockTimes[code];
-    if (!blockTime) return true; // If no block time, allow
-
-    const [hour, minute] = blockTime.split(':').map(Number);
-    const blockDate = new Date(`${today}T${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`);
-
-    return now < blockDate;
-  };
-
   const fetchAndShowRates = async (user: string | null) => {
     try {
-      // const draw = 'DEAR 1 PM';
       if (!user || !selectedTime) {
         console.log('⚠️ Missing user or draw info');
         return;
       }
-      let url = `${Domain}/rateMaster?user=${encodeURIComponent(user)}&draw=${encodeURIComponent(selectedTime)}`
+      let url = `${Domain}/ratemaster?user=${encodeURIComponent(user)}&draw=${encodeURIComponent(selectedTime)}`
 
       const response = await fetch(url);
-
       const data = await response.json();
       console.log('🌐 Full API Response:', data);
 
-      const labelMap = ['super', 'box', 'ab', 'bc', 'ac', 'a', 'b', 'c'];
-
-      let ratesArray = [];
-
+      // Create a map of label -> rate for easy lookup
+      const rateMap: Record<string, number> = {};
+      
       if (data && Array.isArray(data.rates)) {
-        ratesArray = data.rates.map((r) => r.rate);
-      } else {
-        ratesArray = new Array(8).fill(0);
+        // Map each rate to its label in a case-insensitive way
+        data.rates.forEach((rateItem: any) => {
+          if (rateItem.label && !isNaN(Number(rateItem.rate))) {
+            // Store uppercase keys for consistent comparison
+            rateMap[rateItem.label.toUpperCase()] = Number(rateItem.rate);
+          }
+        });
+        
+        console.log('📊 Parsed rate map:', rateMap);
       }
-
-      setRates(ratesArray); // <-- Save to state
-
+      
+      // Convert to array matching labelMap order
+      const ratesArray = labelMap.map(label => 
+        rateMap[label] || 0
+      );
+      
+      console.log('📊 Final rates array:', ratesArray);
+      setRates(ratesArray);
+      
+      // Also store the raw rate map for direct lookup
+      setAssignedRates(rateMap);
     } catch (error) {
       console.error('❌ Error fetching rates:', error);
     }
   };
-
-  // useEffect(() => {
-  //   axios.get('https://manu-netflix.onrender.com/getticketLimit')
-  //     .then((res) => setTicketLimits(res.data))
-  //     .catch((err) => console.error('Error loading ticket limits:', err));
-  // }, []);
-
-
-
-  useEffect(() => {
-    if (loggedInUser) {
-      fetchAndShowRates(loggedInUser);
-    }
-  }, [loggedInUser]);
 
   const handleClear = () => {
     setNumber('');
@@ -242,12 +395,10 @@ useEffect(() => {
     setCheckboxes({ range: false, set: false, hundred: false, tripleOne: false });
     setEntries([]);
   };
-  const getRate = (type: string): number => {
-    // Extract the base type from the full type (e.g., "LSK3SUPER" -> "SUPER")
-    // Handle different patterns: LSK3SUPER, D-1-A, etc.
+
+  const getRate = (type: string, number: string = ''): number => {
     let baseType = '';
 
-    // For patterns like LSK3SUPER, D-1-AB, etc.
     if (type.includes('SUPER')) {
       baseType = 'SUPER';
     } else if (type.includes('BOX')) {
@@ -265,15 +416,28 @@ useEffect(() => {
     } else if (type.includes('-C') || type.endsWith('C')) {
       baseType = 'C';
     }
+    
+    // First check the rate in assignedRates map - faster and more reliable
+    if (baseType in assignedRates && assignedRates[baseType] > 0) {
+      return assignedRates[baseType];
+    }
+    
+    // Fallback to rates array
     const rateIndex = labelMap.indexOf(baseType);
-
-    // If rate index is valid and the rate is greater than 0, use it
     if (rateIndex >= 0 && rateIndex < rates.length && rates[rateIndex] > 0) {
       return rates[rateIndex];
     }
 
-    // Otherwise, default to 10
-    return 10;
+    // Final fallback to length-based rate
+    let numberToCheck = number;
+    if (!numberToCheck && type.includes('-')) {
+      const parts = type.split('-');
+      if (parts.length > 1) {
+        numberToCheck = parts[parts.length - 1];
+      }
+    }
+    
+    return numberToCheck && numberToCheck.length === 1 ? 12 : 10;
   };
 
   const getPermutations = (str: string): string[] => {
@@ -295,26 +459,45 @@ useEffect(() => {
     return Array.from(result);
   };
 
-const handleTogglePress = () => {
-  setToggleCount((prev) => (prev === 3 ? 1 : prev + 1));
-};
+  const formatNumberForWidth = (value: number): string => {
+    const width = toggleCount === 1 ? 1 : toggleCount === 2 ? 2 : 3;
+    return String(value).padStart(width, '0');
+  };
 
-
+  const handleTogglePress = () => {
+    setToggleCount((prev) => (prev === 3 ? 1 : prev + 1));
+    setNumber(''); // Clear number input when toggle changes
+    
+    // Focus number input after clearing
+    setTimeout(() => {
+      numberInputRef.current?.focus();
+    }, 50); // Small timeout to ensure state updates complete first
+  };
 
   const handleAddEntry = (type: string) => {
     const newEntries: Entry[] = [];
 
-    const start = parseInt(rangeStart);
-    const end = parseInt(rangeEnd);
-    const rangeC = parseInt(rangeCount);
-    const singleC = parseInt(count || '1');
-    const boxC = isNaN(parseInt(box)) ? singleC : parseInt(box); // ✅ fallback to count
+    const parsedStart = parseInt(rangeStart || '', 10);
+    const parsedEnd = parseInt(rangeEnd || '', 10);
+    const start = isNaN(parsedStart) ? 0 : parsedStart;
+    const end = isNaN(parsedEnd) ? 999 : parsedEnd;
 
-    const pushEntry = (number: string, count: number, entryType: string) => {
-      newEntries.push({ number, count, type: entryType });
+    const parsedRangeC = parseInt(rangeCount || '', 10);
+    const rangeC = isNaN(parsedRangeC) ? 1 : parsedRangeC;
+
+    const singleC = (() => {
+      const p = parseInt((count ?? '1') || '1', 10);
+      return isNaN(p) ? 1 : p;
+    })();
+
+    const parsedBox = parseInt(box || '', 10);
+    const boxC = isNaN(parsedBox) ? singleC : parsedBox;
+
+    const pushEntry = (numberStr: string, cnt: number, entryType: string) => {
+      newEntries.push({ number: numberStr, count: cnt, type: entryType ,name: name  });
     };
 
-    const useRange = checkboxes.range || checkboxes.hundred || checkboxes.tripleOne;
+    const useRange = !!(checkboxes.range || checkboxes.hundred || checkboxes.tripleOne);
 
     const addWithSetCheck = (num: string, countVal: number, entryType: string) => {
       if (checkboxes.set) {
@@ -327,44 +510,39 @@ const handleTogglePress = () => {
     };
 
     if (type === 'ALL') {
-if (toggleCount === 3) {
-  const countVal = useRange ? rangeC : singleC;
-  const boxVal = useRange ? rangeC : boxC;
+      if (toggleCount === 3) {
+        const countVal = useRange ? rangeC : singleC;
+        const boxVal = useRange ? rangeC : boxC;
 
-  const loop = () => {
-    let numbers: string[] = [];
+        const loop = () => {
+          let numbers: number[] = [];
 
-    if (checkboxes.hundred) {
-      // 100, 200, ..., 900
-      numbers = Array.from({ length: 9 }, (_, idx) => ((idx + 1) * 100).toString().padStart(3, '0'));
-    } else if (checkboxes.tripleOne) {
-      // 000, 111, 222, ..., 999
-      numbers = Array.from({ length: 10 }, (_, idx) => (idx * 111).toString().padStart(3, '0'));
-    } else {
-      // General range
-      const s = start ?? 0;
-      const e = end ?? 999;
-      numbers = Array.from({ length: e - s + 1 }, (_, idx) => (s + idx).toString().padStart(3, '0'));
-    }
+          if (checkboxes.hundred) {
+            numbers = Array.from({ length: 9 }, (_, idx) => (idx + 1) * 100);
+          } else if (checkboxes.tripleOne) {
+            numbers = Array.from({ length: 10 }, (_, idx) => idx * 111);
+          } else {
+            if (end < start) return;
+            numbers = Array.from({ length: end - start + 1 }, (_, idx) => start + idx);
+          }
 
-    numbers.forEach(i => {
-      const numVal = parseInt(i, 10);
-      if (numVal >= start && numVal <= end) {
-        addWithSetCheck(i, countVal, `${selectedCode}SUPER`);
-        addWithSetCheck(i, boxVal, `${selectedCode}BOX`);
-      }
-    });
-  };
+          numbers.forEach(n => {
+            if (n >= start && n <= end) {
+              const formatted = formatNumberForWidth(n);
+              addWithSetCheck(formatted, countVal, `${selectedCode}SUPER`);
+              addWithSetCheck(formatted, boxVal, `${selectedCode}BOX`);
+            }
+          });
+        };
 
-  if (useRange) {
-    if (isNaN(start) || isNaN(end) || isNaN(rangeC)) return;
-    loop();
-  } else {
-    if (!number) return;
-    addWithSetCheck(number, countVal, `${selectedCode}SUPER`);
-    addWithSetCheck(number, boxVal, `${selectedCode}BOX`);
-  }
-
+        if (useRange) {
+          if (isNaN(parsedRangeC)) return;
+          loop();
+        } else {
+          if (!number) return;
+          addWithSetCheck(number, countVal, `${selectedCode}SUPER`);
+          addWithSetCheck(number, boxVal, `${selectedCode}BOX`);
+        }
       } else if (toggleCount === 2) {
         const labels = ['AB', 'BC', 'AC'];
 
@@ -373,28 +551,27 @@ if (toggleCount === 3) {
           if (checkboxes.hundred) {
             numbers = Array.from({ length: 9 }, (_, idx) => (idx + 1) * 100);
           } else if (checkboxes.tripleOne) {
-// triple (111-style) numbers including 000
-numbers = [0, ...Array.from({ length: 9 }, (_, idx) => (idx + 1) * 111)];
+            numbers = Array.from({ length: 10 }, (_, idx) => idx * 111);
           } else {
+            if (end < start) return;
             numbers = Array.from({ length: end - start + 1 }, (_, idx) => start + idx);
           }
-          numbers.forEach(i => {
-            if (i >= start && i <= end) {
-              const num = i.toString();
-              labels.forEach(lab => addWithSetCheck(num, rangeC, `${selectedCode}${lab}`));
+
+          numbers.forEach(n => {
+            if (n >= start && n <= end) {
+              const formatted = formatNumberForWidth(n);
+              labels.forEach(lab => addWithSetCheck(formatted, rangeC, `${selectedCode}${lab}`));
             }
           });
         };
 
         if (useRange) {
-          if (isNaN(start) || isNaN(end) || isNaN(rangeC)) return;
+          if (isNaN(parsedRangeC)) return;
           loop();
         } else {
           if (!number || isNaN(singleC)) return;
-          const num = number;
-          labels.forEach(lab => addWithSetCheck(num, singleC, `${selectedCode}${lab}`));
+          labels.forEach(lab => addWithSetCheck(number, singleC, `${selectedCode}${lab}`));
         }
-
       } else if (toggleCount === 1) {
         const labels = ['A', 'B', 'C'];
 
@@ -403,249 +580,80 @@ numbers = [0, ...Array.from({ length: 9 }, (_, idx) => (idx + 1) * 111)];
           if (checkboxes.hundred) {
             numbers = Array.from({ length: 9 }, (_, idx) => (idx + 1) * 100);
           } else if (checkboxes.tripleOne) {
-            numbers = Array.from({ length: 9 }, (_, idx) => (idx + 1) * 111);
+            numbers = Array.from({ length: 10 }, (_, idx) => idx * 111);
           } else {
+            if (end < start) return;
             numbers = Array.from({ length: end - start + 1 }, (_, idx) => start + idx);
           }
-          numbers.forEach(i => {
-            if (i >= start && i <= end) {
-              const num = i.toString();
-              labels.forEach(lab => addWithSetCheck(num, rangeC, `${selectedCode}-${lab}`));
+
+          numbers.forEach(n => {
+            if (n >= start && n <= end) {
+              const formatted = formatNumberForWidth(n);
+              labels.forEach(lab => addWithSetCheck(formatted, rangeC, `${selectedCode}-${lab}`));
             }
           });
         };
 
         if (useRange) {
-          if (isNaN(start) || isNaN(end) || isNaN(rangeC)) return;
+          if (isNaN(parsedRangeC)) return;
           loop();
         } else {
           if (!number || isNaN(singleC)) return;
-          const num = number;
-          labels.forEach(lab => addWithSetCheck(num, singleC, `${selectedCode}-${lab}`));
+          labels.forEach(lab => addWithSetCheck(number, singleC, `${selectedCode}-${lab}`));
         }
       }
-
     } else {
       if (useRange) {
-        if (isNaN(start) || isNaN(end) || isNaN(rangeC)) return;
-if (checkboxes.range) {
-  for (let i = start; i <= end; i++) {
-    addWithSetCheck(i.toString(), rangeC, type);
-  }
-}
-
-
-        if (checkboxes.hundred) {
-          for (let i = start; i <= end; i += 100) {
-            addWithSetCheck(i.toString(), rangeC, type);
+        if (checkboxes.range) {
+          if (isNaN(parsedStart) || isNaN(parsedEnd) || isNaN(parsedRangeC)) return;
+          for (let i = start; i <= end; i++) {
+            addWithSetCheck(formatNumberForWidth(i), rangeC, type);
           }
         }
-   if (checkboxes.tripleOne) {
-  // Add 000 if it's in range
-  if (0 >= start && 0 <= end) {
-    addWithSetCheck('000', rangeC, type);
-  }
 
-  // Add 111, 222, ..., 999
-  for (let i = 111; i <= 999; i += 111) {
-    if (i >= start && i <= end) {
-      addWithSetCheck(i.toString(), rangeC, type);
-    }
-  }
-}
+        if (checkboxes.hundred) {
+          for (let i = 100; i <= 900; i += 100) {
+            if (i >= start && i <= end) {
+              addWithSetCheck(formatNumberForWidth(i), rangeC, type);
+            }
+          }
+        }
 
+        if (checkboxes.tripleOne) {
+          for (let i = 0; i <= 999; i += 111) {
+            if (i >= start && i <= end) {
+              addWithSetCheck(formatNumberForWidth(i), rangeC, type);
+            }
+          }
+        }
       } else {
         if (!number || isNaN(singleC)) return;
         addWithSetCheck(number, singleC, type);
       }
     }
 
-  setEntries(prev => [...prev, ...newEntries]);
-  setNumber('');
-  setCount('');
-  setBox('');
-  setRangeStart('');
-  setRangeEnd('');
-  setRangeCount('');
+    // prepend new entries (keeps older entries after)
+    setEntries(prev => [...newEntries, ...prev]);
 
-  // ✅ Always jump back to Start input
-  setTimeout(() => {
-    startInputRef.current?.focus();
-  }, 50);
-};
+    // clear inputs
+    setNumber('');
+    setCount('');
+    setBox('');
+    setRangeStart('');
+    setRangeEnd('');
+    setRangeCount('');
+    setName('');
 
-
-  const checkAndFilterEntries = async () => {
-    const dateStr = selectedDate.toISOString().split('T')[0];
-
-    // 1. Group entries by number
-    const numberCounts: Record<string, number> = {};
-    entries.forEach((entry) => {
-      numberCounts[entry.number] = (numberCounts[entry.number] || 0) + 1;
-    });
-
-    const allNumbers = Object.keys(numberCounts);
-
-    // 3. Filter entries that won't exceed limit
-    const maxLimit = 50;
-    const filteredEntries: any[] = [];
-    const tempCounts = { ...existingCounts }; // current DB count
-
-    for (const entry of entries) {
-      const currentDBCount = tempCounts[entry.number] || 0;
-      if (currentDBCount < maxLimit) {
-        filteredEntries.push(entry);
-        tempCounts[entry.number] = currentDBCount + 1; // update temp count
+    // focus appropriate input
+    setTimeout(() => {
+      if (checkboxes.range || checkboxes.hundred || checkboxes.tripleOne) {
+        startInputRef.current?.focus();
+      } else {
+        numberInputRef.current?.focus();
       }
-    }
-
-    return filteredEntries;
+    }, 50);
   };
 
-
-  // const handleSave = async () => {
-  //   try {
-  //     // Step 1: Get block/unblock time for draw
-  //     const blockRes = await fetch(`https://manu-netflix.onrender.com/getBlockTime/${encodeURIComponent(selectedTime)}`);
-  //     if (!blockRes.ok) throw new Error('Block time not set for this draw');
-  //     const blockData = await blockRes.json();
-  //     const { blockTime: blockTimeStr, unblockTime: unblockTimeStr } = blockData;
-  //     if (!blockTimeStr || !unblockTimeStr) throw new Error('Block or unblock time missing');
-
-  //     // Step 2: Check current time against block window
-  //     const now = new Date();
-  //     const todayStr = now.toISOString().split('T')[0];
-  //     const [bh, bm] = blockTimeStr.split(':').map(Number);
-  //     const [uh, um] = unblockTimeStr.split(':').map(Number);
-  //     const blockTime = new Date(`${todayStr}T${String(bh).padStart(2, '0')}:${String(bm).padStart(2, '0')}:00`);
-  //     const unblockTime = new Date(`${todayStr}T${String(uh).padStart(2, '0')}:${String(um).padStart(2, '0')}:00`);
-  //     if (now >= blockTime && now < unblockTime) {
-  //       alert('⛔ Entry time is blocked for this draw!');
-  //       return;
-  //     }
-
-  //     // Step 3: Fetch ticket limits (group1, group2, group3)
-  //     const limitsRes = await fetch('https://manu-netflix.onrender.com/getticketLimit');
-  //     if (!limitsRes.ok) throw new Error('Failed to fetch ticket limits');
-  //     const ticketLimits = await limitsRes.json();
-
-  //     // Merge groups for easier access: { A: '1000', AB: '100', SUPER: '150', ... }
-  //     const allLimits = {
-  //       ...ticketLimits.group1,
-  //       ...ticketLimits.group2,
-  //       ...ticketLimits.group3,
-  //     };
-
-  //     // Step 4: Sum counts per [type-number] from new entries
-  //     const newTotalByNumberType = {};
-  //     entries.forEach((entry) => {
-  //       const rawType = entry.type.replace(selectedCode, '').replace(/-/g, '').toUpperCase();
-  //       const key = `${rawType}-${entry.number}`;
-  //       newTotalByNumberType[key] = (newTotalByNumberType[key] || 0) + (entry.count || 1);
-  //     });
-
-  //     // Step 5: Fetch existing counts from backend
-  //     const numbersToCheck = Object.keys(newTotalByNumberType).map(key => key); // include type-number key
-  //     console.log('Fetching existing counts with keys:', numbersToCheck);
-
-  //     const countRes = await fetch('https://manu-netflix.onrender.com/countByNumber', {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify({
-  //         date: todayStr,
-  //         timeLabel: selectedTime,
-  //         keys: numbersToCheck, // send type-number keys to backend
-  //       }),
-  //     });
-
-  //     if (!countRes.ok) {
-  //       console.error('Failed to fetch counts:', countRes.status, countRes.statusText);
-  //       alert('Failed to fetch counts');
-  //       return;
-  //     }
-
-  //     const existingCounts = await countRes.json();
-  //     console.log('Existing counts from backend:', existingCounts);
-
-  //     // Step 6: Validate entries using limits + existing counts
-  //     const totalSoFar = { ...existingCounts }; // keyed by type-number
-  //     const validEntries = [];
-  //     const exceededEntries = [];
-
-  //     for (const entry of entries) {
-  //       const count = entry.count || 1;
-  //       const rawType = entry.type.replace(selectedCode, '').replace(/-/g, '').toUpperCase();
-  //       const key = `${rawType}-${entry.number}`;
-  //       const maxLimit = parseInt(allLimits[rawType] || '9999', 10);
-
-  //       const currentTotal = totalSoFar[key] || 0;
-  //       const allowedCount = maxLimit - currentTotal;
-
-  //       console.log(`[VALIDATION] ${key}: Max=${maxLimit}, Current=${currentTotal}, Attempted=${count}, Allowed=${allowedCount}`);
-
-  //       if (allowedCount <= 0) {
-  //         exceededEntries.push({ key, attempted: count, limit: maxLimit, existing: currentTotal, added: 0 });
-  //         continue;
-  //       }
-
-  //       if (count <= allowedCount) {
-  //         validEntries.push(entry);
-  //         totalSoFar[key] = currentTotal + count;
-  //       } else {
-  //         validEntries.push({ ...entry, count: allowedCount });
-  //         totalSoFar[key] = currentTotal + allowedCount;
-  //         exceededEntries.push({ key, attempted: count, limit: maxLimit, existing: currentTotal, added: allowedCount });
-  //       }
-  //     }
-
-  //     if (validEntries.length === 0) {
-  //       alert('⛔ All entries exceed the allowed limit for some numbers.');
-  //       return;
-  //     }
-  //     if (exceededEntries.length > 0) {
-  //       const exceededMsg = exceededEntries
-  //         .map(e => `${e.key}: Limit ${e.limit}, Existing ${e.existing}, Attempted ${e.attempted}, Added ${e.added}`)
-  //         .join('\n');
-  //       alert(`⚠️ Some entries were partially or fully skipped due to limits:\n${exceededMsg}`);
-  //     }
-
-  //     // Step 7: Save valid entries
-  //     const payload = {
-  //       entries: validEntries,
-  //       timeLabel: selectedTime,
-  //       timeCode: selectedCode,
-  //       selectedAgent: selection || loggedInUser,
-  //       createdBy: selection || loggedInUser,
-  //       toggleCount: toggleCount,
-  //     };
-
-  //     const controller = new AbortController();
-  //     const timeoutId = setTimeout(() => controller.abort(), 20000);
-  // console.log("sssssssssssssssssssssss1",payload);
-
-  //     const saveRes = await fetch('https://manu-netflix.onrender.com/addEntries', {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify(payload),
-  //       signal: controller.signal,
-  //     });
-
-  //     clearTimeout(timeoutId);
-
-  //     const saveData = await saveRes.json();
-  //     if (saveRes.ok) {
-  //       setBillNumber(saveData?.billNo || '000000');
-  //       setSuccessModalVisible(true);
-  //       setEntries([]);
-  //     } else {
-  //       alert('❌ Error saving: ' + (saveData?.message || 'Unknown error'));
-  //     }
-
-  //   } catch (err) {
-  //     console.error('❌ Save error:', err.message || err);
-  //     alert('❌ Network error. Please try again.');
-  //   }
-  // };
 
   const handleSave = async () => {
     
@@ -683,17 +691,17 @@ if (checkboxes.range) {
 
 
 
+
+
   const handleDeleteEntry = (indexToDelete: number) => {
     setEntries((prev) => prev.filter((_, index) => index !== indexToDelete));
   };
-  // Handle time changes from PasteScreen
+
   useEffect(() => {
     const returnedSelectedTime = route?.params?.selectedTime;
     
-    // If selectedTime is returned from PasteScreen, update the current selectedTime
     if (returnedSelectedTime && returnedSelectedTime !== selectedTime) {
       setSelectedTime(returnedSelectedTime);
-      // Also update the corresponding color and code
       const timeOption = timeOptions.find(option => option.label === returnedSelectedTime);
       if (timeOption) {
         setSelectedColor(timeOption.color);
@@ -702,7 +710,10 @@ if (checkboxes.range) {
     }
   }, [route?.params?.selectedTime]);
 
-  // Handle pasted text separately
+  useEffect(() => {
+    setEntries([]);
+  }, [selectedTime]);
+
   useEffect(() => {
     const pasted = route?.params?.pastedText;
     if (!pasted) return;
@@ -716,7 +727,6 @@ if (checkboxes.range) {
         .trim()
         .replace(/[!@#$%^&(){}\[\];:'"<>\?\\|~`]+/g, '');
 
-      // Case 1: abc 5 10 → A, B, C
       if (cleaned.startsWith('abc')) {
         const parts = cleaned.split(/[\s_\-=\+\/\.,\*]+/);
         if (parts.length === 3) {
@@ -724,37 +734,34 @@ if (checkboxes.range) {
           const count = parseInt(parts[2]);
           if (!isNaN(count)) {
             ['A', 'B', 'C'].forEach((type) => {
-              newEntries.push({ number, count, type, timeLabel: selectedTime }); // ✅ timeLabel added
+              newEntries.push({ number, count, type, timeLabel: selectedTime });
             });
           }
           continue;
         }
       }
 
-      // Case 2: a 5 10
       const parts = cleaned.split(/[\s_\-=\+\/\.,\*]+/);
       if (['a', 'b', 'c'].includes(parts[0]) && parts.length === 3) {
         const type = parts[0].toUpperCase();
         const number = parts[1];
         const count = parseInt(parts[2]);
         if (!isNaN(count)) {
-          newEntries.push({ number, count, type, timeLabel: selectedTime }); // ✅
+          newEntries.push({ number, count, type, timeLabel: selectedTime });
         }
         continue;
       }
 
-      // Case 3: a5=10 or b6-15
       const abcCompact = cleaned.match(/^([abc])(\d+)[\s_\-=\+\/\.,\*]+(\d+)$/);
       if (abcCompact) {
         const [, type, number, countStr] = abcCompact;
         const count = parseInt(countStr);
         if (!isNaN(count)) {
-          newEntries.push({ number, count, type: type.toUpperCase(), timeLabel: selectedTime }); // ✅
+          newEntries.push({ number, count, type: type.toUpperCase(), timeLabel: selectedTime });
         }
         continue;
       }
 
-      // Case 4: 3-digit = 2.1 or 345.1+1
       const numberMatch = cleaned.match(/^(\d{3})/);
       if (numberMatch) {
         const number = numberMatch[1];
@@ -766,295 +773,362 @@ if (checkboxes.range) {
           const boxCount = boxCountStr ? parseInt(boxCountStr) : null;
 
           if (!isNaN(superCount)) {
-            newEntries.push({ number, count: superCount, type: 'SUPER', timeLabel: selectedTime }); // ✅
+            newEntries.push({ number, count: superCount, type: 'SUPER', timeLabel: selectedTime });
           }
           if (boxCount !== null && !isNaN(boxCount)) {
-            newEntries.push({ number, count: boxCount, type: 'BOX', timeLabel: selectedTime }); // ✅
+            newEntries.push({ number, count: boxCount, type: 'BOX', timeLabel: selectedTime });
           }
           continue;
         }
       }
     }
 
-    setEntries((prev) => [...prev, ...newEntries]);
+    setEntries((prev) => [...newEntries, ...prev]);
   }, [route?.params?.pastedText]);
 
+  useEffect(() => {
+    if (route.params?.pastedText) {
+      try {
+        console.log('Raw pasted data:', route.params.pastedText);
+        
+        const pastedEntries = JSON.parse(route.params.pastedText);
+        console.log('Parsed entries:', pastedEntries);
+        
+        const currentShortCode = TIME_SHORTCODES[selectedTime] || 'LSK3';
+        console.log('Current shortcode:', currentShortCode);
 
+        const processedEntries = pastedEntries.map((entry: any) => {
+          // For single digit numbers with A, B, C type
+          if (entry.number.length === 1 && ['A', 'B', 'C'].includes(entry.type)) {
+            const processedEntry = {
+              ...entry,
+              timeLabel: selectedTime,
+              shortCode: currentShortCode // Add shortcode to entry
+            };
+            console.log('Processing single digit:', {
+              ...processedEntry,
+              shortCode: currentShortCode
+            });
+            return processedEntry;
+          }
+
+          // For 3 digit numbers
+          const processedEntry = {
+            ...entry,
+            type: entry.type === 'BOX' ? 
+              `${currentShortCode}BOX` : 
+              `${currentShortCode}SUPER`,
+            timeLabel: selectedTime,
+            shortCode: currentShortCode // Add shortcode to entry
+          };
+          console.log('Processing 3 digit:', {
+            ...processedEntry,
+            shortCode: currentShortCode
+          });
+          return processedEntry;
+        });
+
+        console.log('Final processed entries:', processedEntries.map(entry => ({
+          ...entry,
+          shortCode: currentShortCode
+        })));
+        
+        setEntries(prev => [...processedEntries, ...prev]);
+
+      } catch (error) {
+        console.error('Error processing pasted data:', error);
+      }
+    }
+  }, [route.params?.pastedText, selectedTime]);
 
   return (
-    <View style={[styles.page, { backgroundColor: selectedColor }]}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="always" style={styles.page}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.headerBtn}
-            onPress={() => setModalVisible(true)}
-          >
-            <Text style={[styles.headerBtnText, { color: selectedColor }]}>
-              {selectedTime}
-            </Text>
-          </TouchableOpacity>
+    <SafeAreaView style={[styles.page, { backgroundColor: selectedColor }]}>
+      {/* ✅ Main Content Container with proper padding bottom for footer */}
+      <View style={styles.contentContainer}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer} 
+          keyboardShouldPersistTaps="always"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={() => setModalVisible(true)}
+            >
+              <Text style={[styles.headerBtnText, { color: selectedColor }]}>
+                {selectedTime}
+              </Text>
+            </TouchableOpacity>
 
+            <TouchableOpacity style={styles.headerBtn} onPress={handleTogglePress}>
+              <Text style={[styles.headerBtnText, { color: selectedColor }]}>
+                {toggleCount}
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity style={styles.headerBtn} onPress={handleTogglePress}>
-            <Text style={[styles.headerBtnText, { color: selectedColor }]}>
-              {toggleCount}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+              <Text style={styles.saveButtonText}>SAVE</Text>
+            </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>SAVE</Text>
-          </TouchableOpacity>
+          <View>
+            <UserPickerRow
+              onUserChange={(user) => {
+                console.log("Selected user:", user);
+                setSelection(user || '');
+              }}
+            />
+          </View>
 
+          <Modal visible={successModalVisible} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={styles.successBox}>
+                <Text style={styles.successIcon}>😎</Text>
+                <Text style={styles.successText}>Success</Text>
+                <Text style={styles.billText}>Bill No #{billNumber}</Text>
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity
+                    style={[styles.successBtn, { backgroundColor: '#f85a8f' }]}
+                    onPress={() => {
+                      setSuccessModalVisible(false);
+                      navigation.navigate('ViewBill', { billId: billNumber });
+                    }}
+                  >
+                    <Text style={styles.successBtnText}>View Bill</Text>
+                  </TouchableOpacity>
 
-
-        </View>
-
-        <View>
-          <UserPickerRow
-            onUserChange={(user) => {
-              console.log("Selected user:", user);
-              setSelection(user || '');
-            }}
-          />
-        </View>
-
-
-
-
-        <Modal visible={successModalVisible} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={styles.successBox}>
-              <Text style={styles.successIcon}>😎</Text>
-              <Text style={styles.successText}>Success</Text>
-              <Text style={styles.billText}>Bill No #{billNumber}</Text>
-              <View style={styles.buttonRow}>
-                <TouchableOpacity
-                  style={[styles.successBtn, { backgroundColor: '#f85a8f' }]}
-                  onPress={() => {
-                    setSuccessModalVisible(false);
-                    navigation.navigate('ViewBill', { billId: billNumber });
-                  }}
-                >
-                  <Text style={styles.successBtnText}>View Bill</Text>
-                </TouchableOpacity>
-
-
-                <TouchableOpacity
-                  style={[styles.successBtn, { backgroundColor: '#d2f0df' }]}
-                  onPress={() => setSuccessModalVisible(false)}
-                >
-                  <Text style={[styles.successBtnText, { color: '#000' }]}>Ok</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.successBtn, { backgroundColor: '#d2f0df' }]}
+                    onPress={() => setSuccessModalVisible(false)}
+                  >
+                    <Text style={[styles.successBtnText, { color: '#000' }]}>Ok</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
+          </Modal>
+
+          <View style={styles.checkboxRow}>
+            {checkboxOptions
+              .filter(({ key }) => !(toggleCount === 1 && key === 'set'))
+              .map(({ key, label }) => (
+                <TouchableOpacity key={key} style={styles.checkboxItem} onPress={() => toggleCheckbox(key)}>
+                  <View style={[styles.checkboxBox, checkboxes[key as keyof typeof checkboxes] && styles.checkboxChecked]}>
+                    {checkboxes[key as keyof typeof checkboxes] && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text style={styles.checkboxLabel}>{label}</Text>
+                </TouchableOpacity>
+              ))}
           </View>
-        </Modal>
 
-
-        <View style={styles.checkboxRow}>
-          {checkboxOptions
-            .filter(({ key }) => !(toggleCount === 1 && key === 'set')) // 👈 filter out 'set' if toggleCount is 2
-            .map(({ key, label }) => (
-              <TouchableOpacity key={key} style={styles.checkboxItem} onPress={() => toggleCheckbox(key)}>
-                <View style={[styles.checkboxBox, checkboxes[key as keyof typeof checkboxes] && styles.checkboxChecked]}>
-                  {checkboxes[key as keyof typeof checkboxes] && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-                <Text style={styles.checkboxLabel}>{label}</Text>
-              </TouchableOpacity>
-            ))}
-        </View>
-        {checkboxes.range || checkboxes.hundred || checkboxes.tripleOne ? (
-          <View style={styles.inputRow}>
-    
-
-
-
-
-    <TextInput
-  ref={startInputRef}
-  style={styles.input}
-  placeholder="Start"
-  value={rangeStart}
-  keyboardType="numeric"
-  onChangeText={(text) => {
-    const cleaned = text.replace(/[^0-9]/g, '');
-    const limited = cleaned.slice(0, toggleCount);
-    setRangeStart(limited);
-
-    // Auto focus End input when expected digits reached
-    if (limited.length === toggleCount) {
-      endInputRef.current?.focus();
-    }
-  }}
-/>
-
-
-
-
-            <TextInput
-              ref={endInputRef}
-              style={styles.input}
-              placeholder="End"
-              value={rangeEnd}
-              keyboardType="numeric"
-              onChangeText={(text) => {
-                const cleaned = text.replace(/[^0-9]/g, '');
-                const limited = cleaned.slice(0, toggleCount);
-                setRangeEnd(limited);
-
-                // 👇 Auto-focus Count when End reaches desired length
-                if (limited.length === toggleCount) {
-                  countInputRefRange.current?.focus();
-                }
-              }}
-            />
-
-
-
-            <TextInput
-              ref={countInputRefRange}
-              style={styles.input}
-              placeholder="Count"
-              value={rangeCount}
-              onChangeText={(text) => setRangeCount(text.replace(/[^0-9]/g, ''))}
-              keyboardType="numeric"
-            />
-
-          </View>
-        ) : (
-          <View style={styles.inputRow}>
-            <TextInput
-              ref={numberInputRef}
-              style={styles.input}
-              placeholder="Number"
-              value={number}
-              keyboardType="numeric"
-              blurOnSubmit={false}        // keep keyboard when pressing enter
-              returnKeyType="next"
-              onChangeText={(text) => {
-                const cleaned = text.replace(/[^0-9]/g, '');
-                const limited =
-                  toggleCount === 1 ? cleaned.slice(0, 1)
-                    : toggleCount === 2 ? cleaned.slice(0, 2)
-                      : cleaned.slice(0, 3);
-
-                setNumber(limited);
-
-                if (limited.length === toggleCount) {
-                  countInputRef.current?.focus(); // auto-focus next
-                }
-              }}
-              onSubmitEditing={() => {
-                countInputRef.current?.focus(); // when keyboard "Next" is pressed
-              }}
-            />
-
-
-
-            <TextInput
-              ref={countInputRef}
-              style={styles.input}
-              placeholder="Count"
-              value={count}
-              onChangeText={(text) => setCount(text.replace(/[^0-9]/g, ''))}
-              keyboardType="numeric"
-            />
-
-            {toggleCount === 3 && (
+          {checkboxes.range || checkboxes.hundred || checkboxes.tripleOne ? (
+            <View style={styles.inputRow}>
               <TextInput
+                ref={startInputRef}
                 style={styles.input}
-                placeholder="Box"
-                value={box}
-                onChangeText={setBox}
-                keyboardType="numeric"
+                placeholder="Start"
+                  placeholderTextColor="#666666" // Added placeholder color
 
+                value={rangeStart}
+                keyboardType="numeric"
+                onChangeText={(text) => {
+                  const cleaned = text.replace(/[^0-9]/g, '');
+                  const limited = cleaned.slice(0, toggleCount);
+                  setRangeStart(limited);
+
+                  if (limited.length === toggleCount) {
+                    endInputRef.current?.focus();
+                  }
+                }}
               />
+
+              <TextInput
+                ref={endInputRef}
+                style={styles.input}
+                placeholder="End"
+                  placeholderTextColor="#666666" // Added placeholder color
+
+                value={rangeEnd}
+                keyboardType="numeric"
+                onChangeText={(text) => {
+                  const cleaned = text.replace(/[^0-9]/g, '');
+                  const limited = cleaned.slice(0, toggleCount);
+                  setRangeEnd(limited);
+
+                  if (limited.length === toggleCount) {
+                    countInputRefRange.current?.focus();
+                  }
+                }}
+              />
+
+              <TextInput
+                ref={countInputRefRange}
+                style={styles.input}
+                placeholder="Count"
+                  placeholderTextColor="#666666" // Added placeholder color
+
+                value={rangeCount}
+                onChangeText={(text) => setRangeCount(text.replace(/[^0-9]/g, ''))}
+                keyboardType="numeric"
+              />
+            </View>
+          ) : (
+            <View style={styles.inputRow}>
+              <TextInput
+                ref={numberInputRef}
+                style={styles.input}
+                placeholder="Number"
+                  placeholderTextColor="#666666" // Added placeholder color
+
+                value={number}
+                keyboardType="numeric"
+                blurOnSubmit={false}
+                returnKeyType="next"
+                onChangeText={(text) => {
+                  const cleaned = text.replace(/[^0-9]/g, '');
+                  const limited =
+                    toggleCount === 1 ? cleaned.slice(0, 1)
+                      : toggleCount === 2 ? cleaned.slice(0, 2)
+                        : cleaned.slice(0, 3);
+
+                  setNumber(limited);
+
+                  if (limited.length === toggleCount) {
+                    countInputRef.current?.focus();
+                  }
+                }}
+                onSubmitEditing={() => {
+                  countInputRef.current?.focus();
+                }}
+              />
+
+              <TextInput
+                ref={countInputRef}
+                style={styles.input}
+                placeholder="Count"
+                  placeholderTextColor="#666666" // Added placeholder color
+
+                value={count}
+                onChangeText={(text) => setCount(text.replace(/[^0-9]/g, ''))}
+                keyboardType="numeric"
+              />
+
+              {toggleCount === 3 && (
+                <TextInput
+                  style={styles.input}
+                  placeholder="Box"
+                    placeholderTextColor="#666666" // Added placeholder color
+
+                  value={box}
+                  onChangeText={setBox}
+                  keyboardType="numeric"
+                />
+              )}
+            </View>
+          )}
+
+          <TextInput style={styles.namedInput} placeholder="Name"   placeholderTextColor="#666666" // Added placeholder color
+ value={name} onChangeText={setName} />
+          
+          <View style={styles.buttonRow}>
+            {toggleCount === 1 ? (
+              <>
+                <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#E91E63' }]} onPress={() => handleAddEntry(`${selectedCode}-A`)}>
+                  <Text style={styles.actionText}>{selectedCode}A</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#9C27B0' }]} onPress={() => handleAddEntry(`${selectedCode}-B`)}>
+                  <Text style={styles.actionText}>{selectedCode}B</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#3F51B5' }]} onPress={() => handleAddEntry(`${selectedCode}-C`)}>
+                  <Text style={styles.actionText}>{selectedCode}C</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#007AFF' }]} onPress={() => handleAddEntry('ALL')}>
+                  <Text style={styles.actionText}>ALL</Text>
+                </TouchableOpacity>
+              </>
+            ) : toggleCount === 2 ? (
+              <>
+                <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#FF9800' }]} onPress={() => handleAddEntry(`${selectedCode}AB`)}>
+                  <Text style={styles.actionText}>{selectedCode}AB</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#795548' }]} onPress={() => handleAddEntry(`${selectedCode}AC`)}>
+                  <Text style={styles.actionText}>{selectedCode}AC</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#03A9F4' }]} onPress={() => handleAddEntry(`${selectedCode}BC`)}>
+                  <Text style={styles.actionText}>{selectedCode}BC</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#007AFF' }]} onPress={() => handleAddEntry('ALL')}>
+                  <Text style={styles.actionText}>ALL</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#4CAF50' }]} onPress={() => handleAddEntry(`${selectedCode}SUPER`)}>
+                  <Text style={styles.actionText}>{selectedCode}SUPER</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#9C27B0' }]} onPress={() => handleAddEntry(`${selectedCode}BOX`)}>
+                  <Text style={styles.actionText}>{selectedCode}BOX</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#007AFF' }]} onPress={() => handleAddEntry('ALL')}>
+                  <Text style={styles.actionText}>ALL</Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
-        )}
 
-        <TextInput style={styles.namedInput} placeholder="Name" value={name} onChangeText={setName} />
-        <View style={styles.buttonRow}>
-          {toggleCount === 1 ? (
-            <>
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#E91E63' }]} onPress={() => handleAddEntry(`${selectedCode}-A`)}>
-                <Text style={styles.actionText}>{selectedCode}A</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#9C27B0' }]} onPress={() => handleAddEntry(`${selectedCode}-B`)}>
-                <Text style={styles.actionText}>{selectedCode}B</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#3F51B5' }]} onPress={() => handleAddEntry(`${selectedCode}-C`)}>
-                <Text style={styles.actionText}>{selectedCode}C</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#007AFF' }]} onPress={() => handleAddEntry('ALL')}>
-                <Text style={styles.actionText}>ALL</Text>
-              </TouchableOpacity>
-            </>
-          ) : toggleCount === 2 ? (
-            <>
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#FF9800' }]} onPress={() => handleAddEntry(`${selectedCode}AB`)}>
-                <Text style={styles.actionText}>{selectedCode}AB</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#795548' }]} onPress={() => handleAddEntry(`${selectedCode}AC`)}>
-                <Text style={styles.actionText}>{selectedCode}AC</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#03A9F4' }]} onPress={() => handleAddEntry(`${selectedCode}BC`)}>
-                <Text style={styles.actionText}>{selectedCode}BC</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#007AFF' }]} onPress={() => handleAddEntry('ALL')}>
-                <Text style={styles.actionText}>ALL</Text>
-              </TouchableOpacity>
+          {/* ✅ Updated Entry Section - Now Scrollable */}
+          <View style={styles.entrySection}>
+            <View style={styles.statsRow}>
+              <Text style={styles.statsText}>Count: {entries.reduce((sum, e) => sum + e.count, 0)}</Text>
+              <Text style={styles.statsText}>Total Collect: ₹{entries.reduce((sum, e) => sum + e.count * getRate(e.type), 0).toFixed(2)}</Text>
+            </View>
 
-            </>
-          ) : (
-            <>
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#4CAF50' }]} onPress={() => handleAddEntry(`${selectedCode}SUPER`)}>
-                <Text style={styles.actionText}>{selectedCode}SUPER</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#9C27B0' }]} onPress={() => handleAddEntry(`${selectedCode}BOX`)}>
-                <Text style={styles.actionText}>{selectedCode}BOX</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#007AFF' }]} onPress={() => handleAddEntry('ALL')}>
-                <Text style={styles.actionText}>ALL</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-
-        <View style={styles.entrySection}>
-          <View style={styles.statsRow}>
-            <Text style={styles.statsText}>Count: {entries.reduce((sum, e) => sum + e.count, 0)}</Text>
-            <Text style={styles.statsText}>Total Collect: ₹{entries.reduce((sum, e) => sum + e.count * getRate(e.type), 0).toFixed(2)}</Text>
-          </View>
-
-          <View style={{ height: 340 }}>
+            {/* ✅ Scrollable Table Container */}
             <ScrollView
-              contentContainerStyle={{ paddingBottom: 12 }}
+              style={styles.tableContainer}
+              contentContainerStyle={styles.tableContentContainer}
               showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true} // ✅ Allow nested scrolling
             >
               {entries.map((entry, index) => (
                 <View
-                  key={index}
-                  style={[
-                    styles.tableRow,
-                    { backgroundColor: index % 2 === 0 ? '#ffffff' : '#e3ecd4' },
-                  ]}
-                >
-                  <Text style={styles.tableCell}>{entry.type}</Text>
-                  <Text style={styles.tableCell}>{entry.number}</Text>
-                  <Text style={styles.tableCell}>{entry.count}</Text>
-                  <Text style={styles.tableCell}>{(getRate(entry.type)).toFixed(2)}</Text>
-                  <Text style={styles.tableCell}>{(entry.count * getRate(entry.type)).toFixed(2)}</Text>
-                  <TouchableOpacity
-                    onPress={() => handleDeleteEntry(index)}
-                    style={{ flex: 0.8, alignItems: 'center' }}
-                  >
-                    <Ionicons name="trash" size={20} color="red" />
-                  </TouchableOpacity>
-                </View>
+  key={index}
+  style={[
+    styles.tableRow,
+    { backgroundColor: index % 2 === 0 ? '#ffffff' : '#e3ecd4' },
+  ]}
+>
+  <Text style={styles.tableCell}>
+      {entry.type === 'A' || entry.type === 'B' || entry.type === 'C' 
+        ? `${entry.shortCode}${entry.type}`
+        : entry.type}
+    </Text>
+    <Text style={styles.tableCell}>{entry.number}</Text>
+    <Text style={styles.tableCell}>{entry.count}</Text>
+    <Text style={styles.tableCell}>{entry.name || '-'}</Text>
+    <Text style={[styles.tableCell, styles.amountCell]}>
+      {(entry.count * (entry.number.length === 1 ? 12 : 10)).toFixed(2)}
+    </Text>
+    <Text style={[styles.tableCell, styles.amountCell]}>
+      {(entry.count * getRate(entry.type, entry.number)).toFixed(2)}
+    </Text>
+    <TouchableOpacity
+      onPress={() => handleDeleteEntry(index)}
+      style={styles.deleteButton}
+    >
+      <Ionicons name="trash" size={20} color="black" />
+    </TouchableOpacity>
+</View>
               ))}
             </ScrollView>
+
+            <View style={styles.tableFooter}>
+              <Text style={styles.footerText}>
+                Total Pay: ₹{entries.reduce((sum, e) => sum + e.count * getRate(e.type), 0).toFixed(2)}
+              </Text>
+            </View>
           </View>
+          
           <Modal
             transparent
             visible={modalVisible}
@@ -1084,18 +1158,10 @@ if (checkboxes.range) {
               </View>
             </TouchableWithoutFeedback>
           </Modal>
+        </ScrollView>
+      </View>
 
-
-
-          <View style={styles.tableFooter}>
-            <Text style={styles.footerText}>
-              Total Pay: ₹{entries.reduce((sum, e) => sum + e.count * getRate(e.type), 0).toFixed(2)}
-            </Text>
-          </View>
-        </View>
-
-      </ScrollView>
-
+      {/* ✅ Fixed Footer Row - Always at bottom, no overlap */}
       <View style={styles.footerRow}>
         <TouchableOpacity style={[styles.footerBtn, { backgroundColor: '#ccc' }]} onPress={handleClear}>
           <Text style={styles.footerBtnText}>CLEAR</Text>
@@ -1111,33 +1177,40 @@ if (checkboxes.range) {
           <Ionicons name="logo-whatsapp" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
 export default AddScreen;
-// Your imports and component logic remains the same from above...
 
+// ✅ Updated Styles with scrollable entry section
 const styles = StyleSheet.create({
   page: {
     flex: 1,
   },
-  container: {
-    paddingTop: 12,
-    paddingBottom: 16,
-    marginTop: 30,
+  // ✅ Content container that leaves space for footer + 20px free space
+  contentContainer: {
+    flex: 1,
+    paddingBottom: FOOTER_HEIGHT + SAFE_AREA_BOTTOM + BOTTOM_FREE_SPACE, // ✅ Added 20px space
+  },
+  // ✅ ScrollView content styling with reduced top padding
+  scrollContainer: {
+    paddingTop: 5, // ✅ Reduced padding
+    paddingBottom: 10, // ✅ Reduced padding
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 15,
+    paddingHorizontal: 12, // ✅ Reduced from 15
+    marginBottom: 5, // ✅ Reduced from 15
+    marginTop: 29, // ✅ Reduced from 10
   },
   saveButton: {
     backgroundColor: '#FFD700',
-    width: width * 0.22,
+    width: width * 0.28,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 36,
+    height: 42,
     borderRadius: 10,
   },
   saveButtonText: {
@@ -1147,13 +1220,12 @@ const styles = StyleSheet.create({
   },
   headerBtn: {
     backgroundColor: '#FFFFFF',
-    width: width * 0.22,
+    width: width * 0.28,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 36,
+    height: 42,
     borderRadius: 10,
   },
-
   headerBtnText: {
     fontSize: 13,
     fontWeight: 'bold',
@@ -1162,41 +1234,40 @@ const styles = StyleSheet.create({
   checkboxRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
-    paddingHorizontal: 10,
+    marginBottom: 8, // ✅ Reduced from 10
+    paddingHorizontal: 8, // ✅ Reduced from 10
   },
   checkboxItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   checkboxBox: {
-    width: 18,
-    height: 18,
+    width: 20,
+    height: 20,
     borderWidth: 2,
     borderColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 4,
-    marginRight: 6,
+    marginRight: 6, // ✅ Reduced from 8
     backgroundColor: '#c3f7ce',
-
   },
   namedInput: {
     backgroundColor: '#fff',
-    paddingHorizontal: 8,
-    paddingVertical: 0,
-    marginBottom: 12,
-    justifyContent: 'center',
-    height: 36,
-    marginHorizontal: 9,
-
+    paddingHorizontal: 10, // ✅ Reduced from 12
+    paddingVertical: 8, // ✅ Reduced from 10
+    marginBottom: 10, // ✅ Reduced from 15
+    height: 40, // ✅ Reduced from 42
+    marginHorizontal: 8, // ✅ Reduced from 10
+    borderRadius: 6,
+    fontSize: 14,
   },
   checkboxChecked: {
     backgroundColor: '#fff',
   },
   checkmark: {
     color: '#FF476F',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   checkboxLabel: {
@@ -1207,99 +1278,145 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
-    marginHorizontal: 5,
-
-
+    marginBottom: 8, // ✅ Reduced from 10
+    marginHorizontal: 6, // ✅ Reduced from 8
   },
   input: {
     flex: 1,
     backgroundColor: '#fff',
-    marginHorizontal: 4,
-    padding: 8,
-    fontSize: 13,
-  },
-  nameInput: {
-    backgroundColor: '#fff',
-    paddingVertical: 0,
-    marginBottom: 10,
-    justifyContent: 'center',
+    marginHorizontal: 3, // ✅ Reduced from 4
+    paddingHorizontal: 8, // ✅ Reduced from 10
+    paddingVertical: 8, // ✅ Reduced from 10
+    fontSize: 14,
+    borderRadius: 6,
+    height: 40, // ✅ Reduced from 42
   },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 0,
-    paddingHorizontal: 8,
-
+    marginBottom: 10, // ✅ Reduced from 15
+    paddingHorizontal: 6, // ✅ Reduced from 8
   },
   actionButton: {
     flex: 1,
-    paddingVertical: 12,
-    marginHorizontal: 4,
+    paddingVertical: 10, // ✅ Reduced from 12
+    marginHorizontal: 3, // ✅ Reduced from 4
     alignItems: 'center',
-    borderRadius: 4,
+    borderRadius: 6,
+    minHeight: 40, // ✅ Reduced from 44
   },
   actionText: {
     color: '#fff',
     fontWeight: '700',
     fontSize: 12,
   },
+  // ✅ Entry section - INCREASED HEIGHT with reduced margins
   entrySection: {
     backgroundColor: '#F2F2F2',
-    borderRadius: 8,
-    marginTop: 10,
-    minHeight: height * 0.51,
+    borderRadius: 8, // ✅ Reduced from 10
+    marginTop: 8, // ✅ Reduced from 10
+    minHeight: height * 0.55, // ✅ INCREASED from 0.4 to 0.55
+    maxHeight: height * 0.75, // ✅ INCREASED from 0.6 to 0.75
     width: '100%',
     overflow: 'hidden',
   },
-
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     backgroundColor: '#e3ecd7',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 4,
+    paddingHorizontal: 10, // ✅ Reduced from 12
+    paddingVertical: 6, // ✅ Reduced from 8
+    marginTop: 3, // ✅ Reduced from 6
   },
   statsText: {
     fontWeight: 'bold',
     color: '#333',
     fontSize: 13,
   },
+  // ✅ Scrollable table container with INCREASED HEIGHT
+  tableContainer: {
+    flex: 1, // ✅ Take available space
+    marginHorizontal: 3, // ✅ Reduced from 4
+    maxHeight: height * 0.6, // ✅ INCREASED from 0.4 to 0.6
+  },
+  // ✅ Content container for scrollable table
+  tableContentContainer: {
+    paddingBottom: 1, // ✅ Minimal padding
+  },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 4,
+    backgroundColor: '#ffffff', // Fixed white background
+    paddingVertical: 6, // ✅ Reduced from 8
     borderBottomWidth: 1,
-    borderColor: '#ccc',
-    paddingHorizontal: 3,
+    borderBottomColor: '#cccccc', // Fixed border color
+    paddingHorizontal: 3, // ✅ Reduced from 4
+    alignItems: 'center',
+    minHeight: 28, // ✅ Reduced from 30
   },
   tableCell: {
     flex: 1,
-    fontSize: 11,
+    fontSize: 12,
     textAlign: 'center',
     fontWeight: 'bold',
-    color: '#000',
-    height: 18,
+    color: '#000000', // Fixed black color
+    paddingVertical: 2,
   },
-
+  typeCell: {
+    flex: 1.2, // More space for type
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: 'bold',
+    color: '#000000', // Fixed black color
+    paddingVertical: 2,
+  },
+  numberCell: {
+    flex: 0.8, // Less space for number
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: 'bold',
+    color: '#000000', // Fixed black color
+    paddingVertical: 2,
+  },
+  amountCell: {
+    flex: 1,
+    color: '#000000', // Fixed black color
+    textAlign: 'right',
+    paddingRight: 8,
+  },
+  actionCell: {
+    flex: 0.8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // ✅ Delete button styling
+  deleteButton: {
+    flex: 0.8,
+    alignItems: 'center',
+    paddingVertical: 2, // ✅ Reduced from 8
+    paddingHorizontal: 2, // ✅ Reduced from 4
+  },
+  // ✅ Fixed footer positioning with 20px free space at bottom
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    position: 'absolute',
-    bottom: 10,
-    left: 8,
-    right: 8,
-    backgroundColor: 'transparent', // or '#fff' if you want visible bg
-    marginBottom: 14,
+    paddingHorizontal: 10, // ✅ Reduced from 12
+    paddingVertical: 2, // ✅ Reduced from 10
+    position: 'absolute', // ✅ Absolute positioning
+    bottom: SAFE_AREA_BOTTOM + BOTTOM_FREE_SPACE, // ✅ Added 20px free space
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.05)', // ✅ Slight background for visibility
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.2)',
   },
   footerBtn: {
     flex: 1,
-    paddingVertical: 10,
-    marginHorizontal: 4,
+    paddingVertical: 10, // ✅ Reduced from 12
+    marginHorizontal: 4, // ✅ Reduced from 6
     alignItems: 'center',
     borderRadius: 8,
+    minHeight: 30, // ✅ Reduced from 44
   },
   footerBtnText: {
     color: '#fff',
@@ -1315,8 +1432,8 @@ const styles = StyleSheet.create({
   modalBox: {
     backgroundColor: 'transparent',
     borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
     width: '75%',
     elevation: 10,
     shadowColor: 'black',
@@ -1325,7 +1442,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   modalItem: {
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
     marginVertical: 4,
     borderRadius: 8,
@@ -1335,39 +1452,31 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
   },
-  textStyle: {
-    color: 'black',
-    fontWeight: 'bold',
-  },
-  modalItem0: { backgroundColor: '#f15b87' },
-  modalItem1: { backgroundColor: '#1fb9cc' },
-  modalItem2: { backgroundColor: '#113d57' },
-  modalItem3: { backgroundColor: '#3c6248' },
   successBox: {
     width: '80%',
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 18,
+    borderRadius: 12,
+    padding: 20,
     alignItems: 'center',
   },
   successIcon: {
-    fontSize: 28,
-    marginBottom: 8,
+    fontSize: 32,
+    marginBottom: 10,
   },
   successText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   billText: {
-    fontSize: 14,
-    marginBottom: 16,
+    fontSize: 16,
+    marginBottom: 20,
   },
   successBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 8,
-    marginHorizontal: 5,
+    marginHorizontal: 6,
     alignItems: 'center',
   },
   successBtnText: {
@@ -1377,20 +1486,29 @@ const styles = StyleSheet.create({
   },
   tableFooter: {
     backgroundColor: '#fff',
-    paddingVertical: 8,
-    marginTop: 26,
-    borderRadius: 8,
-    elevation: 3,  // subtle shadow for Android
-    shadowColor: '#000',  // iOS shadow
+    paddingVertical: 8, // ✅ Reduced from 10
+    marginTop: 5, // ✅ Reduced from 10
+    borderRadius: 6, // ✅ Reduced from 8
+    elevation: 3,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     alignItems: 'flex-end',
+    marginHorizontal: 6, // ✅ Reduced from 8
   },
-
   footerText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#222',
+    paddingHorizontal: 10, // ✅ Reduced from 12
+  },
+  rateCell: {
+    color: '#0066CC',  // Blue color to highlight rate
+    fontWeight: '600',
+  },
+  totalCell: {
+    color: '#006400',  // Dark green for amount
+    fontWeight: 'bold',
   },
 });

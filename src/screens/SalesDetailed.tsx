@@ -33,6 +33,7 @@ interface EntryItem {
   timeLabel?: string;
   number: string;
   count: number;
+  name:string;
   rate?: number; // Add rate field
   type?: string; // Add type field
   createdAt?: string;
@@ -157,16 +158,23 @@ const SalesReportDetailedAll = () => {
             A: <Text style={styles.boldText}>{item.createdBy}</Text>
           </Text>
         </TouchableOpacity>
-
+        <View style={[styles.itemRow, { backgroundColor: '#eee' }]}>
+    <Text style={[styles.itemCell, { fontWeight: 'bold' }]}>Type</Text>
+    <Text style={[styles.itemCell, { fontWeight: 'bold' }]}>Number</Text>
+    <Text style={[styles.itemCell, { fontWeight: 'bold' }]}>Count</Text>
+    <Text style={[styles.itemCell, { fontWeight: 'bold' }]}>Name</Text>
+    <Text style={[styles.itemCell, { fontWeight: 'bold' }]}>Amount</Text>
+  </View>
        {item.items.map((entry, idx) => {
   const rate = Number(entry.rate) || 0; // Use rate from entry
   return (
-    <View style={styles.itemRow} key={entry._id + idx}>
-      <Text style={styles.itemCell}>{entry.type}</Text>
-      <Text style={styles.itemCell}>{entry.number}</Text>
-      <Text style={styles.itemCell}>{entry.count}</Text>
-      <Text style={styles.itemCell}>{rate.toFixed(2)}</Text>
-    </View>
+      <View style={styles.itemRow} key={entry._id + idx}>
+        <Text style={styles.itemCell}>{entry.type}</Text>
+        <Text style={styles.itemCell}>{entry.number}</Text>
+        <Text style={styles.itemCell}>{entry.count}</Text>
+        <Text style={styles.itemCell}>{entry?.name || '-'}</Text>
+        <Text style={styles.itemCell}>{rate.toFixed(2)}</Text>
+      </View>
   );
 })}
 

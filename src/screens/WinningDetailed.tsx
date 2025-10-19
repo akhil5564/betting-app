@@ -13,6 +13,7 @@ interface WinEntry {
   winType?: string;
   count: number;
   winAmount: number;
+  name?: string; 
 }
 
 interface Bill {
@@ -96,6 +97,7 @@ export default class WinningDetailed extends Component<Props, State> {
         <Text style={styles.winNumber}>{win.number}</Text>
         <Text style={styles.winType}>{win.winType || win.type}</Text>
         <Text style={styles.winCount}>{win.count}</Text>
+        <Text style={styles.winName}>{win?.name || '-'}</Text>
         <Text style={[styles.winAmount, { color: win.winAmount >= 0 ? "green" : "red" }]}>
           ₹{win.winAmount}
         </Text>
@@ -123,6 +125,7 @@ export default class WinningDetailed extends Component<Props, State> {
           <Text style={styles.winNumber}>Number</Text>
           <Text style={styles.winType}>Type</Text>
           <Text style={styles.winCount}>Count</Text>
+          <Text style={styles.winName}>Name</Text>
           <Text style={styles.winAmount}>Amount</Text>
           <Text style={styles.winAmount}>Super</Text>
           <Text style={styles.winAmount}>Total</Text>
@@ -201,6 +204,13 @@ const styles = StyleSheet.create({
   },
   winNumber: { flex: 2, fontWeight: "bold", fontSize: 13, textAlign: "center" },
   winType: { flex: 1, fontWeight: "bold", fontSize: 13, textAlign: "center" },
+  winName: { 
+    flex: 2, 
+    fontWeight: "bold", 
+    fontSize: 13, 
+    textAlign: "center" 
+  },
+  
   winCount: { flex: 1, fontWeight: "bold", fontSize: 13, textAlign: "center" },
   winAmount: { flex: 1, fontWeight: "bold", fontSize: 13, textAlign: "center" },
 
