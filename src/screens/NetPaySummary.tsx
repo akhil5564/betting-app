@@ -102,11 +102,16 @@ const [selectedUser, setSelectedUser] = useState("All");
       "DEAR 6 PM": "DEAR 6 PM",
       "DEAR 8 PM": "DEAR 8 PM",
     };
-    const normalizedLabel = drawLabelMap[entry.timeLabel] || entry.timeLabel;
+    // First map LSK to KERALA, then strip space before PM/AM to match backend format
+    const mappedLabel = drawLabelMap[entry.timeLabel] || entry.timeLabel;
+    const normalizedLabel = mappedLabel.replace(/\s+(PM|AM)$/gi, '$1');
   
-    // ✅ now lookup with both user + draw + betType
+    // Use entry's createdBy/username to lookup rates (backend uses createdBy as key)
+    const entryUser = entry.createdBy || entry.username || user;
+    
+    // ✅ now lookup with both entry's user + draw + betType
     const rate =
-      userRates[user]?.[normalizedLabel]?.[betType] ??
+      userRates[entryUser]?.[normalizedLabel]?.[betType] ??
       10;
   
     return sum + (entry.count || 0) * rate;
