@@ -42,6 +42,7 @@ import BlockDate from './src/screens/BlockDate';
 import Usernumberblock from './src/screens/Usernumberblock';
 import Usercreditlimit from './src/screens/Usercreditlimit';
 
+import  WinningReportSummary from './src/screens/WinningReportSummary';
 
 // Define the WinningReport interface
 interface WinningReport {
@@ -95,6 +96,12 @@ export type RootStackParamList = {
   ViewBill: undefined;
   NumberWiseReportResult: undefined;
   winningdetailed: { report: WinningReport };
+  winningreportsummary: {
+    report: WinningReport;
+    totalPrize: number;
+    totalSuper: number;
+    totalAmount: number;
+  };
   MORE: undefined;
   Schemes: undefined;
   netdetailed: {
@@ -110,6 +117,9 @@ export type RootStackParamList = {
     userRates: { [username: string]: any };
   };
   timeset: undefined;
+    Usernumberblock: undefined;
+    blockdate: undefined;
+    usercreditlimit: undefined;
 };
 
 
@@ -151,6 +161,7 @@ export default function App() {
             <Stack.Screen name="ViewBill" component={ViewBillScreen} />
 <Stack.Screen name="NumberWiseReportResult" component={NumberWiseReportResult} />
 <Stack.Screen name="winningdetailed" component={WinningDetailed} />
+<Stack.Screen name="winningreportsummary" component={WinningReportSummary} />
 <Stack.Screen name="MORE" component={MORE} />
 <Stack.Screen name="netdetailed" component={NetPaySummary} />
 
