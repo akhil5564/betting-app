@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
-import { Ionicons } from "@expo/vector-icons";
+import Icon from "react-native-vector-icons/Ionicons";
 import axios from "axios";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -23,42 +23,68 @@ const payouts = {
   A_B_C: 100,
 };
 
-function isDoubleNumber(numStr) {
+function isDoubleNumber(numStr: string) {
   return new Set(numStr.split("")).size === 2;
 }
 
-function addDays(date, days) {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-}
-
-function formatDate(date) {
+function formatDate(date: Date) {
   return date.toISOString().split("T")[0];
 }
 
-export function extractBetType(typeStr) {
+export function extractBetType(typeStr: string) {
   if (!typeStr) return "";
   const parts = typeStr.split("-");
   return parts[parts.length - 1];
 }
+// export const Domain = "https://bajaj-app-backend.onrender.com";
 
 export const Domain = "https://www.muralibajaj.site";
-// export const  Domain ='http://10.274.677.85:5000';
-// export const  Domain ='https://manu-netflix.onrender.com'
+
+// export const Domain = "https://th7m39hx-5000.inc1.devtunnels.ms/";
+// export const Domain = "http://localhost:5000";
+// export const Domain = "https://manu-netflix.onrender.com";
+
+
+
+// Function to fetch result separately with proper time mapping
+const fetchResultForTimeLabel = async (timeLabel: string, date: string) => {
+  const timeMap: { [key: string]: string } = {
+    "LSK 3 PM": "KERALA 3PM",
+    "DEAR 1 PM": "DEAR 1PM", 
+    "DEAR 6 PM": "DEAR 6PM",
+    "DEAR 8 PM": "DEAR 8PM"
+  };
+  
+  const resultTimeFormat = timeMap[timeLabel] || timeLabel;
+  
+  try {
+    const response = await fetch(`${Domain}/getresult?time=${encodeURIComponent(resultTimeFormat)}&date=${date}`);
+    const data = await response.json();
+    return data?.data?.[0] || null; // Return the first result object
+  } catch (error) {
+    console.error(`Error fetching result for ${timeLabel}:`, error);
+    return null;
+  }
+};
+
 export default function NetPayMultiDayScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+
+  const [userRatesByDraw, setUserRatesByDraw] = useState<{ [draw: string]: number | null }>({});
+  const [userRate, setUserRate] = useState<number | null>(null);
+
   const [fromDate, setFromDate] = useState(new Date());
   const [toDate, setToDate] = useState(new Date());
   const [showFrom, setShowFrom] = useState(false);
   const [showTo, setShowTo] = useState(false);
-  const [selectedTime, setSelectedTime] = useState("DEAR 8 PM");
+  const [selectedTime, setSelectedTime] = useState("All");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [allUsers, setAllUsers] = useState([]);
+  const [allUsers, setAllUsers] = useState<string[]>([]);
   const [loggedInUser, setLoggedInUser] = useState("");
   const [selectedAgent, setSelectedAgent] = useState("");
 
+  // 🔹 Load logged-in user + their subusers
   useEffect(() => {
     const loadUserAndUsers = async () => {
       try {
@@ -70,18 +96,13 @@ export default function NetPayMultiDayScreen() {
           const response = await fetch(`${Domain}/users`);
           const data = await response.json();
 
-          if (response.ok && Array.isArray(data)) {
+          if (Array.isArray(data)) {
             const usernames = data
               .filter((u) => u.createdBy === storedUser)
               .map((u) => u.username)
-              .filter(
-                (username) =>
-                  typeof username === "string" && username.trim() !== ""
-              );
+              .filter((u) => typeof u === "string" && u.trim() !== "");
 
             setAllUsers([storedUser, ...usernames]);
-          } else {
-            console.error("Invalid data format from API");
           }
         }
       } catch (err) {
@@ -92,81 +113,110 @@ export default function NetPayMultiDayScreen() {
     loadUserAndUsers();
   }, []);
 
-  const calculateWinAmount = (entry, results) => {
-    if (!results || !results["1"]) return 0;
+  // 🔹 Fetch rate after loggedInUser is ready
+  useEffect(() => {
+    if (!loggedInUser) return;
 
-    const firstPrize = results["1"];
-    const others = Array.isArray(results.others) ? results.others : [];
-    const allPrizes = [
-      results["1"],
-      results["2"],
-      results["3"],
-      results["4"],
-      results["5"],
-      ...others,
-    ].filter(Boolean);
 
-    const num = entry.number;
-    const count = entry.count || 0;
-    const baseType = extractBetType(entry.type);
+    const fetchRates = async () => {
+      const draws = [
+        "DEAR 1 PM",
+        "LSK 3 PM",
+        "DEAR 6 PM",
+        "DEAR 8 PM",
+      ];
+      const rates: { [draw: string]: number | null } = {};
 
-    let winAmount = 0;
+      for (const draw of draws) {
+        try {
+          const url = `${Domain}/ratemaster?user=${encodeURIComponent(
+            loggedInUser
+          )}&draw=${encodeURIComponent(draw)}`;
+          const res = await fetch(url);
+          const data = await res.json();
+          console.log(`[RATE-API] draw='${draw}' user='${loggedInUser}' raw=`, data);
 
-    if (baseType === "SUPER") {
-      const prizePos = allPrizes.indexOf(num) + 1;
-      if (prizePos > 0) {
-        winAmount = (payouts.SUPER[prizePos] || payouts.SUPER.other) * count;
+          // Extract the 'SUPER' rate from array/object response
+          let superRate: number | null = null;
+          if (Array.isArray(data)) {
+            const found = data.find((r: any) => r.label === "SUPER");
+            if (found && found.rate !== undefined) superRate = Number(found.rate);
+          } else if (Array.isArray(data?.rates)) {
+            const found = data.rates.find((r: any) => r.label === "SUPER");
+            if (found && found.rate !== undefined) superRate = Number(found.rate);
+          } else if (Array.isArray(data?.data)) {
+            const found = data.data.find((r: any) => r.label === "SUPER");
+            if (found && found.rate !== undefined) superRate = Number(found.rate);
+          } else if (data?.rate && data?.label === "SUPER") {
+            superRate = Number(data.rate);
+          }
+          if (superRate === null || isNaN(superRate)) {
+            console.warn(`[RATE-API] SUPER rate not found for draw='${draw}' user='${loggedInUser}'. Data:`, data);
+            rates[draw] = null;
+          } else {
+            rates[draw] = superRate;
+          }
+        } catch (err) {
+          console.error(`⚠️ Error fetching rate for ${draw}:`, err);
+          rates[draw] = null;
+        }
       }
-    } else if (baseType === "BOX") {
-      if (num === firstPrize) {
-        winAmount = isDoubleNumber(firstPrize)
-          ? payouts.BOX.double.perfect * count
-          : payouts.BOX.normal.perfect * count;
-      } else if (
-        num.split("").sort().join("") === firstPrize.split("").sort().join("")
-      ) {
-        winAmount = isDoubleNumber(firstPrize)
-          ? payouts.BOX.double.permutation * count
-          : payouts.BOX.normal.permutation * count;
-      }
-    } else if (baseType === "AB" && num === firstPrize.slice(0, 2)) {
-      winAmount = payouts.AB_BC_AC * count;
-    } else if (baseType === "BC" && num === firstPrize.slice(1, 3)) {
-      winAmount = payouts.AB_BC_AC * count;
-    } else if (baseType === "AC" && num === firstPrize[0] + firstPrize[2]) {
-      winAmount = payouts.AB_BC_AC * count;
-    } else if (baseType === "A" && num === firstPrize[0]) {
-      winAmount = payouts.A_B_C * count;
-    } else if (baseType === "B" && num === firstPrize[1]) {
-      winAmount = payouts.A_B_C * count;
-    } else if (baseType === "C" && num === firstPrize[2]) {
-      winAmount = payouts.A_B_C * count;
-    }
 
-    return winAmount;
+      setUserRatesByDraw(rates);
+
+      // For single draw UI
+      if (selectedTime && selectedTime !== "All") {
+        setUserRate(rates[selectedTime] ?? null);
+      } else {
+        setUserRate(null);
+      }
+    };
+
+    fetchRates();
+  }, [loggedInUser, selectedTime]);
+
+  // 🔹 Map frontend time labels to backend result formats
+  const mapTimeForBackend = (timeLabel: string) => {
+    const timeMap: { [key: string]: string } = {
+      "LSK 3 PM": "KERALA 3PM",
+      "DEAR 1 PM": "DEAR 1PM", 
+      "DEAR 6 PM": "DEAR 6PM",
+      "DEAR 8 PM": "DEAR 8PM"
+    };
+    return timeMap[timeLabel] || timeLabel;
   };
 
-  const getAllDescendants = (username, usersList) => {
-    const children = usersList
-      .filter((u) => u.createdBy === username)
-      .map((u) => u.username);
-
-    let all = [...children];
-    children.forEach((child) => {
-      all = all.concat(getAllDescendants(child, usersList));
-    });
-    return all;
-  };
-
+  // 🔹 Fetch entries + navigate to detailed
   const fetchDataAndNavigate = async () => {
+    // Log the logged-in user's SUPER rate for each draw and show sales calculation
+    const draws = ["DEAR 1 PM", "LSK 3 PM", "DEAR 6 PM", "DEAR 8 PM"];
+    // Example: Suppose you have sales count for each draw (simulate for demo)
+    // In real app, replace with actual sales count per draw from your data
+    const salesCounts: { [draw: string]: number } = {
+      "DEAR 1 PM": 10, // Example: 10 tickets for DEAR 1 PM
+      "LSK 3 PM": 5,
+      "DEAR 6 PM": 8,
+      "DEAR 8 PM": 0,
+    };
+    if (typeof userRatesByDraw === 'object') {
+      draws.forEach(draw => {
+        const rate = userRatesByDraw[draw];
+        const count = salesCounts[draw] || 0;
+        if (rate !== null && count > 0) {
+          const sales = count * rate;
+          console.log(`Draw: ${draw}, SUPER rate for ${loggedInUser}: ${rate}, Sales count: ${count}, Sales: ${count}*${rate}=${sales}`);
+        } else {
+          console.log(`Draw: ${draw}, SUPER rate for ${loggedInUser}: ${rate ?? '-'}, Sales count: ${count}`);
+        }
+      });
+    }
     setLoading(true);
     setError("");
 
     try {
-      // Map "All" to all individual times
       const timeToSend =
         selectedTime === "All"
-          ? ["DEAR 1 PM", "LSK 3 PM", "DEAR 6 PM", "DEAR 8 PM"]
+          ? ["DEAR 1 PM", "LSK 3 PM", "DEAR 6 PM", "DEAR 8 PM", "KERALA 3 PM"]
           : selectedTime;
 
       const response = await axios.post(`${Domain}/report/netpay-multiday`, {
@@ -176,8 +226,7 @@ export default function NetPayMultiDayScreen() {
         agent: selectedAgent,
       });
 
-      const allEntries = response.data.entries || [];
-      if (allEntries.length === 0) {
+      if (response.data.entries.length === 0) {
         setError("No entries found for the selected date range and agent.");
         setLoading(false);
         return;
@@ -186,14 +235,14 @@ export default function NetPayMultiDayScreen() {
       navigation.navigate("netdetailed", {
         fromDate: formatDate(fromDate),
         toDate: formatDate(toDate),
-        time: selectedTime, // keep "All" in UI/navigation
+        time: selectedTime,
         agent: selectedAgent || "All Agents",
-        matchedEntries: allEntries,
+        matchedEntries: response.data.entries,
         userRates: response.data.userRates,
         usersList: response.data.usersList || [],
       });
     } catch (err) {
-      setError("Failed to fetch data: " + err.message);
+      setError("Failed to fetch data: " + (err as any).message);
     } finally {
       setLoading(false);
     }
@@ -203,32 +252,39 @@ export default function NetPayMultiDayScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
+          <Icon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerText}>Net Pay Report</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <View style={styles.form}>
+        {userRate !== null && (
+          <Text style={{ fontWeight: "bold", color: "#333", marginBottom: 8 }}>
+            Rate: ₹{userRate}
+          </Text>
+        )}
+
         <Text style={styles.sectionTitle}>Time Slot</Text>
         <Picker
           selectedValue={selectedTime}
           onValueChange={setSelectedTime}
           style={styles.picker}
         >
-          <Picker.Item label="All" value="All" />
-          <Picker.Item label="DEAR 1 PM" value="DEAR 1 PM" />
-          <Picker.Item label="LSK 3 PM" value="LSK 3 PM" />
-          <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" />
-          <Picker.Item label="DEAR 8 PM" value="DEAR 8 PM" />
-          <Picker.Item label="All" value="All" />
+          <Picker.Item label="ALL" value="All" color="#000000" />
+          <Picker.Item label="DEAR 1 PM" value="DEAR 1 PM" color="#000000" />
+          <Picker.Item label="LSK 3 PM" value="LSK 3 PM" color="#000000" />
+          <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" color="#000000" />
+          <Picker.Item label="DEAR 8 PM" value="DEAR 8 PM" color="#000000" />
         </Picker>
 
         <View style={styles.row}>
           <View style={styles.dateInput}>
             <Text style={styles.label}>From Date</Text>
             <TouchableOpacity onPress={() => setShowFrom(true)}>
-              <Text style={styles.dateText}>{fromDate.toLocaleDateString()}</Text>
+              <Text style={styles.dateText}>
+                {fromDate.toLocaleDateString()}
+              </Text>
             </TouchableOpacity>
             {showFrom && (
               <DateTimePicker
@@ -266,15 +322,14 @@ export default function NetPayMultiDayScreen() {
           </View>
         </View>
 
-        <Text style={styles.pickerWrapper}>Select Agent</Text>
+        <Text style={styles.sectionTitle}>Select Agent</Text>
         <Picker
           selectedValue={selectedAgent}
           onValueChange={setSelectedAgent}
           style={styles.picker}
         >
-          <Picker.Item label="All Agents" value="" />
           {allUsers.map((username, i) => (
-            <Picker.Item key={i} label={username} value={username} />
+            <Picker.Item key={i} label={username} value={username} color="#000000" />
           ))}
         </Picker>
 
@@ -282,7 +337,9 @@ export default function NetPayMultiDayScreen() {
           style={styles.generateButton}
           onPress={fetchDataAndNavigate}
         >
-          <Text style={styles.generateButtonText}>Generate Net Pay Report</Text>
+          <Text style={styles.generateButtonText}>
+            Generate Net Pay Report
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -303,7 +360,7 @@ export default function NetPayMultiDayScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  container: { flex: 1, backgroundColor: "#f5f5f5" ,marginTop:30},
   header: {
     flexDirection: "row",
     padding: 16,
@@ -311,27 +368,19 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
-  headerText: { fontSize: 18, fontWeight: "bold", color: "#333" },
+  headerText: { fontSize: 18, fontWeight: "bold", color: "#000000" },
   form: {
     backgroundColor: "#fff",
     margin: 16,
     padding: 16,
     borderRadius: 10,
     elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#333",
+    color: "#000000",
     marginBottom: 8,
     marginTop: 12,
   },
@@ -341,7 +390,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: "#553737ff",
-    color: "#000",
+    color: "#000000",
   },
   row: {
     flexDirection: "row",
@@ -351,12 +400,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   dateInput: { flex: 1 },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 6,
-    color: "#666",
-  },
+  label: { fontSize: 14, fontWeight: "600", marginBottom: 6, color: "#000000" },
   dateText: {
     padding: 12,
     backgroundColor: "#fff",
@@ -365,6 +409,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     textAlign: "center",
     fontSize: 14,
+    color: "#000000",
+    fontWeight: "bold",
   },
   equalBox: {
     width: 40,
@@ -375,40 +421,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 20,
   },
-  equalText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
+  equalText: { color: "#f5e6e6ff", fontSize: 18, fontWeight: "bold" },
   generateButton: {
     backgroundColor: "#ff2e63",
     padding: 16,
     borderRadius: 8,
     marginTop: 20,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
   },
   generateButtonText: {
-    color: "#fff",
+    color: "#f8ebebff",
     fontWeight: "bold",
     textAlign: "center",
     fontSize: 16,
   },
-  loadingContainer: {
-    alignItems: "center",
-    padding: 20,
-  },
-  loadingText: {
-    marginTop: 10,
-    color: "#666",
-    fontSize: 14,
-  },
+  loadingContainer: { alignItems: "center", padding: 20 },
+  loadingText: { marginTop: 10, color: "#666", fontSize: 14 },
   errorContainer: {
     margin: 16,
     padding: 16,
     backgroundColor: "#ffebee",
     borderRadius: 8,
-    borderLeft: 4,
-    borderLeftColor: "#f44336",
   },
-  errorText: { color: "#d32f2f", fontSize: 14, fontWeight: "500" },
+  errorText: { color: "#c01c1cff", fontSize: 14, fontWeight: "500" },
 });

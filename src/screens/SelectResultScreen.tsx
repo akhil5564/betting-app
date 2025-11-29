@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Platform,
   Share,
+  Alert,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import axios from 'axios';
@@ -24,97 +25,169 @@ const ResultScreen = () => {
   const [prizes, setPrizes] = useState<string[]>([]);
   const [entries, setEntries] = useState<string[]>([]);
 
-  const formatDate = (date: Date) => {
-    return date.toISOString().split('T')[0];
-  };
+  const formatDate = (date: Date) => date.toISOString().split('T')[0];
 
   const handleGenerate = async () => {
     try {
       const formattedDate = formatDate(selectedDate);
-      // const url = `${Domain}/getResult?date=${formattedDate}&time=${encodeURIComponent(selectedTime)}`;
-      // console.log(url,'sssssssssssssssssssssssssssssssss');
-      const resultRes = await axios.get(
-        `${Domain}/getResult`,
-        { params: { date: formattedDate, time: selectedTime } }
-      );
+      const resultRes = await axios.get(`${Domain}/getResult`, {
+        params: { date: formattedDate, time: selectedTime },
+      });
       const res = resultRes;
-      console.log(res,'ressssssssssssssssssssssssssssssssss');
-      
-      // Check if API returned no results (status: 0)
+
       if (res.data.status === 0) {
         setPrizes([]);
         setEntries([]);
-        alert('No results found for the selected date and time');
+        Alert.alert('No results found for the selected date and time');
         return;
       }
-      
-      // Parse the actual API response structure
-      const responseData = res.data.status === 1 ? res.data.data && res.data.data[0] : {};
-      if (!responseData) {
-        throw new Error('No data found in response');
-      }
-      
-      // Extract prizes (positions 1-5)
-      const prizes = [
-        responseData["1"],
-        responseData["2"], 
-        responseData["3"],
-        responseData["4"],
-        responseData["5"]
-      ].filter(prize => prize); // Remove any undefined values
-      
-      // Extract entries from the "others" array
-      const entries = responseData.others || [];
-      
-      setPrizes(prizes);
-      setEntries(entries.slice(0, 30)); // Limit to 30 entries
+
+      const responseData =
+        res.data.status === 1 ? res.data.data && res.data.data[0] : {};
+      if (!responseData) throw new Error('No data found in response');
+
+      const foundPrizes = [
+        responseData['1'],
+        responseData['2'],
+        responseData['3'],
+        responseData['4'],
+        responseData['5'],
+      ].filter(Boolean);
+
+      let others = responseData.others || [];
+
+      const parsed = others
+        .map((entry: string) => parseInt(entry.toString().trim()))
+        .filter((num: number) => !isNaN(num))
+        .sort((a: number, b: number) => a - b)
+        .map((num: number) => num.toString().padStart(3, '0'));
+
+      const last30 = parsed.slice(-30);
+
+      setPrizes(foundPrizes);
+      setEntries(last30);
     } catch (err) {
       console.error(err);
       setPrizes([]);
       setEntries([]);
-      // alert('No result found or network error');
-      // No error alert shown to user
+      Alert.alert('Error', 'Failed to fetch results');
     }
   };
 
   const buildResultText = () => {
-    return [
+    const resultLines = [
       `🎯 ${selectedTime} Result (${selectedDate.toLocaleDateString('en-GB')})`,
       '',
       ...prizes.map((p, i) => `${i + 1}: ${p}`),
       '',
-      'Entries:',
-      ...entries,
-    ].join('\n');
+      'Compliments:',
+      '',
+    ];
+
+    const numRows = Math.ceil(entries.length / 3);
+    for (let row = 0; row < numRows; row++) {
+      const rowEntries: string[] = [];
+
+      if (row < entries.length) rowEntries.push(entries[row]);
+      if (row + numRows < entries.length) rowEntries.push(entries[row + numRows]);
+      if (row + numRows * 2 < entries.length)
+        rowEntries.push(entries[row + numRows * 2]);
+
+      while (rowEntries.length < 3) rowEntries.push('   ');
+
+      resultLines.push(rowEntries.join('    '));
+    }
+
+    return resultLines.join('\n');
   };
 
   const handleCopy = async () => {
     await Clipboard.setStringAsync(buildResultText());
-    alert('Result copied to clipboard!');
+    Alert.alert('Copied!', 'Result copied to clipboard.');
   };
 
   const handleShare = async () => {
     try {
       await Share.share({ message: buildResultText() });
-    } catch (error) {
-      alert('Failed to share result');
+    } catch {
+      Alert.alert('Error', 'Failed to share result');
     }
+  };
+
+  const renderEntriesGrid = () => {
+    const paddedEntries = [...entries];
+    while (paddedEntries.length < 30) paddedEntries.push('');
+    const numRows = 10;
+    const rows = [];
+
+    for (let row = 0; row < numRows; row++) {
+      const rowEntries = [
+        paddedEntries[row] || '',
+        paddedEntries[row + numRows] || '',
+        paddedEntries[row + numRows * 2] || '',
+      ];
+
+      rows.push(
+        <View key={row} style={styles.gridRow}>
+          {rowEntries.map((entry, index) => (
+            <View
+              key={`${row}-${index}`}
+              style={[
+                styles.cell,
+                (row + index) % 2 === 0 ? styles.cellEven : styles.cellOdd,
+              ]}
+            >
+              <Text style={styles.cellText}>{entry}</Text>
+            </View>
+          ))}
+        </View>
+      );
+    }
+    return rows;
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Results</Text>
+      {/* Action Buttons */}
+      <View style={styles.actions}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={[styles.btn, styles.primary]}
+          onPress={handleGenerate}
+        >
+          <Ionicons name="refresh-outline" size={20} color="#fff" />
+          <Text style={styles.btnText}></Text>
+        </TouchableOpacity>
 
-      <View style={styles.row}>
-        <View style={styles.pickerWrapper}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={[styles.btn, styles.copy]}
+          onPress={handleCopy}
+        >
+          <Ionicons name="copy-outline" size={20} color="#fff" />
+          <Text style={styles.btnText}>Copy</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={[styles.btn, styles.share]}
+          onPress={handleShare}
+        >
+          <Ionicons name="share-social-outline" size={20} color="#fff" />
+          <Text style={styles.btnText}></Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Date & Time Picker Row */}
+      <View style={styles.selectorRow}>
+        <View style={styles.pickerCard}>
           <Picker
             selectedValue={selectedTime}
             onValueChange={(itemValue) => setSelectedTime(itemValue)}
             style={styles.picker}
-            dropdownIconColor="#333"
           >
             {timeOptions.map((t) => (
-              <Picker.Item key={t} label={t} value={t} />
+              <Picker.Item key={t} label={t} value={t} color="#000" />
             ))}
           </Picker>
         </View>
@@ -123,6 +196,7 @@ const ResultScreen = () => {
           onPress={() => setShowDatePicker(true)}
           style={styles.dateButton}
         >
+          <Ionicons name="calendar-outline" size={20} color="#007AFF" />
           <Text style={styles.dateText}>
             {selectedDate.toLocaleDateString('en-GB')}
           </Text>
@@ -138,158 +212,132 @@ const ResultScreen = () => {
             setShowDatePicker(false);
             if (date) setSelectedDate(date);
           }}
+          textColor="#000"
         />
       )}
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.actionButton} onPress={handleGenerate}>
-          <Ionicons name="refresh" size={18} color="#fff" />
-          <Text style={styles.buttonText}>Generate</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton} onPress={handleCopy}>
-          <Ionicons name="copy-outline" size={18} color="#fff" />
-          <Text style={styles.buttonText}>Copy</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-          <Ionicons name="share-social-outline" size={18} color="#fff" />
-          <Text style={styles.buttonText}>Share</Text>
-        </TouchableOpacity>
-      </View>
-
+      {/* Prizes */}
       {prizes.length > 0 && (
-        <View style={styles.prizeContainer}>
-          {prizes.map((prize, index) => (
-            <View
-              key={index}
-              style={[
-                styles.prizeRow,
-                { backgroundColor: index % 2 === 0 ? '#a5e9d2' : '#add4ff' },
-              ]}
-            >
-              <Text style={styles.prizeText}>{index + 1} : {prize}</Text>
+        <View style={styles.card}>
+          {prizes.map((prize, i) => (
+            <View key={i} style={styles.fullWidthPrizeRow}>
+              <Text style={styles.prizeText}>{`${i + 1}. ${prize}`}</Text>
             </View>
           ))}
         </View>
       )}
 
-      <View style={styles.grid}>
-        {entries.map((entry, i) => (
-          <View
-            key={i}
-            style={[
-              styles.cell,
-              { backgroundColor: i % 2 === 0 ? '#a5e9d2' : '#add4ff' },
-            ]}
-          >
-            <Text style={styles.cellText}>{entry}</Text>
-          </View>
-        ))}
-      </View>
+      {/* Compliments */}
+      {entries.length > 0 && (
+        <View style={styles.card}>
+          <View style={styles.grid}>{renderEntriesGrid()}</View>
+        </View>
+      )}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    backgroundColor: '#f5f7fb',
-    alignItems: 'center',
+    backgroundColor: '#eef3fb',
+    padding: 10,
     flexGrow: 1,
     marginTop: 30,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#222',
-    marginBottom: 16,
-  },
-  row: {
-    flexDirection: 'row',
-    width: '100%',
-    marginBottom: 12,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  pickerWrapper: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    marginRight: 10,
-  },
-  picker: {
-    height: 48,
-    width: '100%',
-  },
-  dateButton: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
-  },
-  dateText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  buttonRow: {
+    marginBottom: 20,
+    paddingBottom: 30,
+ },
+  actions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 18,
     gap: 10,
-    width: '100%',
-    marginBottom: 16,
-    marginTop: 8,
   },
-  actionButton: {
+  btn: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#007bff',
-    paddingVertical: 12,
-    borderRadius: 8,
+    alignItems: 'center',
+    paddingVertical: 13,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  buttonText: {
+  primary: { backgroundColor: '#2563eb' },
+  copy: { backgroundColor: '#16a34a' },
+  share: { backgroundColor: '#f59e0b' },
+  btnText: {
     color: '#fff',
+    fontWeight: '700',
     fontSize: 15,
-    fontWeight: '600',
     marginLeft: 6,
   },
-  prizeContainer: {
-    width: '100%',
-    marginBottom: 16,
-    borderRadius: 8,
+  selectorRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  pickerCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
     overflow: 'hidden',
   },
-  prizeRow: {
-    paddingVertical: 12,
+  picker: { height: 48 },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+  },
+  dateText: {
+    marginLeft: 6,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 4,
+    elevation: 2,
+  },
+  fullWidthPrizeRow: {
+    width: '100%',
+    backgroundColor: '#ffd6a5',
+    borderRadius: 8,
+    paddingVertical: 10,
+    marginBottom: 8,
     alignItems: 'center',
   },
   prizeText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#111827',
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    width: '100%',
-    marginTop: 10,
-  },
+  grid: { width: '100%', marginTop: 1 },
+  gridRow: { flexDirection: 'row', marginBottom: 3 },
   cell: {
-    width: '33.33%',
-    paddingVertical: 12,
+    flex: 1,
+    marginHorizontal: 2,
+    paddingVertical: 8,
     alignItems: 'center',
+    borderRadius: 6,
   },
-  cellText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#000',
+  cellEven: {
+    backgroundColor: '#fef9c3',
   },
+  cellOdd: {
+    backgroundColor: '#ffd6a5',
+  },
+  cellText: { fontSize: 16, fontWeight: '600', color: '#1e293b' },
 });
 
 export default ResultScreen;

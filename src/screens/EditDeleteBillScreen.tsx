@@ -7,13 +7,16 @@ import {
   StyleSheet,
   FlatList,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Domain } from './NetPayScreen';
 
 const EditDeleteBillScreen = () => {
   const route = useRoute();
+  const navigation = useNavigation();
   const { billNo: routeBillNo } = route.params || {};
 
   const [billNo, setBillNo] = useState(routeBillNo || '');
@@ -22,36 +25,50 @@ const EditDeleteBillScreen = () => {
   const [editingId, setEditingId] = useState(null);
   const [editingCount, setEditingCount] = useState('');
 
-  // Current timeLabel to fetch blockTime
+  // Block time related states
   const [timeLabel, setTimeLabel] = useState(null);
-
-  // Block time info from backend
   const [blockTime, setBlockTime] = useState(null);
-
-  // Date of the entry (expected format: "YYYY-MM-DD")
   const [entryDate, setEntryDate] = useState(null);
+  const [isBlocked, setIsBlocked] = useState(true); // ✅ Start DISABLED by default
+  const [userType, setUserType] = useState('');
+  const [blockCheckLoading, setBlockCheckLoading] = useState(false);
+  const [timeCheckCompleted, setTimeCheckCompleted] = useState(false); // ✅ Track if time check done
 
-  // Is editing/deleting blocked currently?
-  const [isBlocked, setIsBlocked] = useState(false);
-
-  // Fetch block time when timeLabel changes
+  // ✅ Load user type from AsyncStorage
   useEffect(() => {
-    if (timeLabel) {
-      fetchBlockTime(timeLabel);
+    const loadUserType = async () => {
+      try {
+        const storedUserType = await AsyncStorage.getItem('usertype');
+        setUserType(storedUserType || 'sub');
+        console.log('👤 Loaded user type:', storedUserType);
+      } catch (error) {
+        console.error('❌ Error loading user type:', error);
+        setUserType('sub');
+      }
+    };
+    loadUserType();
+  }, []);
+
+  // ✅ Fetch block time when timeLabel or userType changes
+  useEffect(() => {
+    if (timeLabel && userType) {
+      setTimeCheckCompleted(false); // ✅ Mark time check as not done yet
+      fetchBlockTime(timeLabel, userType);
     } else {
       setBlockTime(null);
-      setIsBlocked(false);
+      setIsBlocked(true); // ✅ Keep disabled until time check passes
+      setTimeCheckCompleted(false);
     }
-  }, [timeLabel]);
+  }, [timeLabel, userType]);
 
-  // Search bill entries when route param changes
+  // ✅ Search bill entries when route param changes
   useEffect(() => {
     if (routeBillNo) {
       handleSearch(routeBillNo);
     }
   }, [routeBillNo]);
 
-  // Check block status whenever blockTime or entryDate changes
+  // ✅ Check block status whenever blockTime or entryDate changes
   useEffect(() => {
     if (blockTime && entryDate) {
       checkIfBlocked();
@@ -62,67 +79,139 @@ const EditDeleteBillScreen = () => {
     }
   }, [blockTime, entryDate]);
 
-  // Fetch blockTime data from server for a timeLabel
-  const fetchBlockTime = async (timeLabelParam) => {
+  // ✅ Fetch blockTime data from server for a timeLabel and userType
+  const fetchBlockTime = async (timeLabelParam, userTypeParam) => {
     try {
-      const encodedLabel = encodeURIComponent(timeLabelParam);
-      const res = await fetch(`${Domain}/getBlockTime/${encodedLabel}`);
-      if (!res.ok) throw new Error('Failed to fetch block time');
+      setBlockCheckLoading(true);
+      
+      const drawKeyMap = {
+        'LSK 3 PM': 'LSK3',
+        'KERALA 3 PM': 'LSK3',
+        'DEAR 1 PM': 'DEAR1',
+        'DEAR 6 PM': 'DEAR6',
+        'DEAR 8 PM': 'DEAR8',
+      };
+
+      const drawKey = drawKeyMap[timeLabelParam] || 'LSK3';
+      const role = userTypeParam.toLowerCase();
+
+      console.log('🔍 Fetching block time for:', { drawKey, role, timeLabel: timeLabelParam });
+
+      const res = await fetch(`${Domain}/blockTime/${encodeURIComponent(drawKey)}/${encodeURIComponent(role)}`);
+      
+      if (!res.ok) {
+        console.log('⚠️ No block time found, editing allowed');
+        setBlockTime(null);
+        setIsBlocked(false);
+        return;
+      }
+
       const data = await res.json();
+      console.log('✅ Fetched blockTime:', data);
 
-      console.log('Fetched blockTime:', data);
-
-      setBlockTime(data);
+      if (data?.blockTime && data?.unblockTime) {
+        setBlockTime(data);
+      } else {
+        setBlockTime(null);
+        setIsBlocked(false);
+      }
     } catch (err) {
-      console.error('Error fetching block time:', err);
+      console.error('❌ Error fetching block time:', err);
       setBlockTime(null);
       setIsBlocked(false);
+    } finally {
+      setBlockCheckLoading(false);
     }
   };
 
-  // Updated block check: block if current datetime >= entry date + block time
+  // ✅ UPDATED: Permanent blocking based on entry date + block time
   const checkIfBlocked = () => {
     if (!blockTime || !blockTime.blockTime || !entryDate) {
-      setIsBlocked(false);
+      setIsBlocked(true); // ✅ Keep disabled if no time check available
+      setTimeCheckCompleted(true);
       return;
     }
 
-    const now = new Date();
+    try {
+      const now = new Date();
+      
+      // Parse entryDate (format: "YYYY-MM-DD")
+      const [year, month, day] = entryDate.split('-').map(Number);
+      const [blockH, blockM] = blockTime.blockTime.split(':').map(Number);
 
-    // Parse entryDate expected format: "YYYY-MM-DD"
-    const [year, month, day] = entryDate.split('-').map(Number);
-    const [blockH, blockM] = blockTime.blockTime.split(':').map(Number);
+      // ✅ Create the exact block deadline: Entry Date + Block Time
+      const blockDeadline = new Date(year, month - 1, day, blockH, blockM, 0, 0);
 
-    const blockDateTime = new Date(year, month - 1, day, blockH, blockM, 0, 0);
+      console.log('⏰ Permanent Block Check:', {
+        entryDate,
+        blockTime: blockTime.blockTime,
+        blockDeadline: blockDeadline.toString(),
+        currentTime: now.toString(),
+        isPastDeadline: now >= blockDeadline
+      });
 
-    // Debug logs
-    console.log('Now:', now.toString());
-    console.log('Entry Date + Block Time:', blockDateTime.toString());
-    console.log('Blocked?', now >= blockDateTime);
+      // ✅ RULE: If current time has passed the block deadline, PERMANENTLY block
+      const isPermanentlyBlocked = now >= blockDeadline;
+      
+      console.log(`🔒 Block Decision: ${isPermanentlyBlocked ? 'BLOCKED' : 'ALLOWED'}`);
+      setIsBlocked(isPermanentlyBlocked);
+      setTimeCheckCompleted(true); // ✅ Mark time check as done
 
-    // Block if current datetime is after or equal to block datetime
-    setIsBlocked(now >= blockDateTime);
+    } catch (error) {
+      console.error('❌ Error checking block time:', error);
+      setIsBlocked(true); // ✅ Keep disabled on error for security
+      setTimeCheckCompleted(true);
+    }
   };
 
-  // Fetch entries by billNo and update timeLabel and entryDate
+  // ✅ Fetch entries by billNo and update timeLabel and entryDate
   const handleSearch = async (searchBillNo = billNo) => {
-    if (!searchBillNo) return;
+    if (!searchBillNo) {
+      Alert.alert('Error', 'Please enter a bill number');
+      return;
+    }
+
     try {
       setLoading(true);
+      console.log('🔍 Searching for bill:', searchBillNo);
+
       const res = await fetch(`${Domain}/entries?billNo=${searchBillNo}`);
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
       const data = await res.json();
+      console.log('📦 Found entries:', data.length);
+
       setEntries(data);
 
       if (data.length > 0) {
-        if (data[0].timeLabel) setTimeLabel(data[0].timeLabel);
+        // Extract timeLabel and date from first entry
+        if (data[0].timeLabel) {
+          setTimeLabel(data[0].timeLabel);
+          console.log('🕐 Time label:', data[0].timeLabel);
+        }
 
-        // Assume each entry has a 'createdAt' field - convert to "YYYY-MM-DD"
-        if (data[0].createdAt) {
+        // ✅ Use 'date' field first, fallback to 'createdAt'
+        if (data[0].date) {
+          const dt = new Date(data[0].date);
+          const yyyy = dt.getFullYear();
+          const mm = String(dt.getMonth() + 1).padStart(2, '0');
+          const dd = String(dt.getDate()).padStart(2, '0');
+          const formattedDate = `${yyyy}-${mm}-${dd}`;
+          
+          setEntryDate(formattedDate);
+          console.log('📅 Entry date set to:', formattedDate);
+        } else if (data[0].createdAt) {
           const dt = new Date(data[0].createdAt);
           const yyyy = dt.getFullYear();
           const mm = String(dt.getMonth() + 1).padStart(2, '0');
           const dd = String(dt.getDate()).padStart(2, '0');
-          setEntryDate(`${yyyy}-${mm}-${dd}`);
+          const formattedDate = `${yyyy}-${mm}-${dd}`;
+          
+          setEntryDate(formattedDate);
+          console.log('📅 Entry date from createdAt:', formattedDate);
         } else {
           setEntryDate(null);
         }
@@ -131,58 +220,92 @@ const EditDeleteBillScreen = () => {
         setEntryDate(null);
         setBlockTime(null);
         setIsBlocked(false);
+        Alert.alert('No Results', 'No entries found for this bill number');
       }
     } catch (err) {
       console.error('❌ Error fetching bill:', err);
-      alert('Failed to fetch entries');
+      Alert.alert('Error', 'Failed to fetch entries. Please try again.');
+      setEntries([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Delete all entries of bill, only if not blocked
+  // ✅ UPDATED: Get meaningful block message
+  const getBlockMessage = () => {
+    if (!blockTime || !entryDate) {
+      return 'Editing is currently blocked.';
+    }
+
+    const [year, month, day] = entryDate.split('-').map(Number);
+    const [blockH, blockM] = blockTime.blockTime.split(':').map(Number);
+    const blockDeadline = new Date(year, month - 1, day, blockH, blockM, 0, 0);
+
+    const formattedDeadline = blockDeadline.toLocaleDateString('en-GB') + ' ' + blockTime.blockTime;
+
+    return `🔒 This bill from ${entryDate} is permanently locked. Editing/deleting was only allowed until ${formattedDeadline}.`;
+  };
+
+  // ✅ Delete all entries with permanent block check
   const handleDelete = () => {
     if (isBlocked) {
-      alert('Editing and deleting entries is blocked at this time.');
+      Alert.alert('🔒 Permanently Blocked', getBlockMessage(), [{ text: 'OK', style: 'default' }]);
       return;
     }
-    Alert.alert('Confirm Delete', `Delete all entries in bill ${billNo}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const res = await fetch(`${Domain}/deleteEntriesByBillNo/${billNo}`, {
-              method: 'DELETE',
-            });
-            const result = await res.json();
-            if (res.ok) {
-              alert('Deleted successfully');
+
+    if (!billNo || entries.length === 0) {
+      Alert.alert('Error', 'No bill to delete');
+      return;
+    }
+
+    Alert.alert(
+      'Confirm Delete', 
+      `Delete all ${entries.length} entries in bill ${billNo}?`, 
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const res = await fetch(`${Domain}/deleteEntriesByBillNo/${billNo}`, {
+                method: 'DELETE',
+              });
+              
+              if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP error! status: ${res.status}`);
+              }
+
+              const result = await res.json();
+              
+              Alert.alert('Success', 'All entries deleted successfully');
               setEntries([]);
               setBillNo('');
               setTimeLabel(null);
               setEntryDate(null);
               setBlockTime(null);
               setIsBlocked(false);
-            } else {
-              alert(result.message || 'Failed to delete');
+            } catch (error) {
+              console.error('❌ Delete error:', error);
+              Alert.alert('Error', error.message || 'Error deleting entries');
+            } finally {
+              setLoading(false);
             }
-          } catch (error) {
-            console.error(error);
-            alert('Error deleting entries');
-          }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
-  // Confirm delete for single entry, blocked check included
+  // ✅ Confirm delete for single entry, with permanent block check
   const confirmDeleteEntry = (id) => {
     if (isBlocked) {
-      alert('Editing and deleting entries is blocked at this time.');
+      Alert.alert('🔒 Permanently Blocked', getBlockMessage(), [{ text: 'OK', style: 'default' }]);
       return;
     }
+
     Alert.alert('Confirm Delete', 'Delete this entry?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -193,46 +316,55 @@ const EditDeleteBillScreen = () => {
     ]);
   };
 
-  // Delete single entry by id
+  // ✅ Delete single entry by id
   const deleteEntryById = async (id) => {
     try {
-      const res = await fetch(`${Domain}/deleteEntryById/${id}`, {
+      setLoading(true);
+      
+      const res = await fetch(`${Domain}/deleteEntryById/${id}/${userType}`, {
         method: 'DELETE',
       });
 
-      const text = await res.text();
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch (e) {
-        console.error('❌ Server did not return JSON:', text);
-        alert('Unexpected server response');
-        return;
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${res.status}`);
       }
 
-      if (res.ok) {
-        setEntries((prev) => prev.filter((entry) => entry._id !== id));
-        alert('Deleted entry successfully');
-      } else {
-        alert(result.message || 'Failed to delete entry');
-      }
+      const result = await res.json();
+      
+      setEntries((prev) => prev.filter((entry) => entry._id !== id));
+      Alert.alert('Success', 'Entry deleted successfully');
     } catch (error) {
       console.error('❌ Delete entry error:', error);
-      alert('Error deleting entry');
+      Alert.alert('Error', error.message || 'Error deleting entry');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Save edited count for entry, only if not blocked
+  // ✅ Save edited count with permanent block check
   const saveEditedCount = async (id) => {
     if (isBlocked) {
-      alert('Editing and deleting entries is blocked at this time.');
+      Alert.alert('🔒 Permanently Blocked', getBlockMessage(), [{ text: 'OK', style: 'default' }]);
       return;
     }
+
+    const newCount = parseInt(editingCount);
+    if (isNaN(newCount) || newCount <= 0) {
+      Alert.alert('Invalid Input', 'Please enter a valid count greater than 0');
+      return;
+    }
+
     try {
+      setLoading(true);
+      
       const res = await fetch(`${Domain}/updateEntryCount/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ count: parseInt(editingCount) }),
+        body: JSON.stringify({ 
+          count: newCount,
+          userType: userType
+        }),
       });
 
       const result = await res.json();
@@ -240,25 +372,49 @@ const EditDeleteBillScreen = () => {
       if (res.ok) {
         setEntries((prev) =>
           prev.map((entry) =>
-            entry._id === id ? { ...entry, count: parseInt(editingCount) } : entry
+            entry._id === id ? { ...entry, count: newCount } : entry
           )
         );
         setEditingId(null);
         setEditingCount('');
+        Alert.alert('Success', 'Count updated successfully');
       } else {
-        alert(result.message || 'Failed to update count');
+        Alert.alert('Error', result.message || 'Failed to update count');
       }
     } catch (error) {
       console.error('❌ Error updating count:', error);
-      alert('Error saving changes');
+      Alert.alert('Error', 'Error saving changes');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Render entry row with editing disabled if blocked
+  // ✅ Start editing with permanent block check
+  const startEditing = (id, currentCount) => {
+    if (isBlocked) {
+      Alert.alert('🔒 Permanently Blocked', getBlockMessage(), [{ text: 'OK', style: 'default' }]);
+      return;
+    }
+
+    setEditingId(id);
+    setEditingCount(String(currentCount));
+  };
+
+  // ✅ Calculate amount based on entry rate or fallback to count * 8
+  const calculateAmount = (entry, displayCount) => {
+    const count = parseInt(displayCount || '0');
+    if (entry.rate && typeof entry.rate === 'number') {
+      const ratePerUnit = entry.rate / (entry.count || 1);
+      return (count * ratePerUnit).toFixed(2);
+    }
+    return (count * 8).toFixed(2);
+  };
+
+  // ✅ Render entry row
   const renderEntry = ({ item }) => {
     const isEditing = editingId === item._id;
     const displayCount = isEditing ? editingCount : item.count;
-    const totalAmount = (parseInt(displayCount || '0') * 8).toFixed(2);
+    const totalAmount = calculateAmount(item, displayCount);
 
     return (
       <View style={styles.entryTableRow}>
@@ -267,137 +423,226 @@ const EditDeleteBillScreen = () => {
 
         {isEditing ? (
           <TextInput
-            style={[styles.cell, { borderBottomWidth: 1, color: '#000' }]}
+            style={[styles.cell, styles.editInput]}
             value={editingCount}
             onChangeText={setEditingCount}
             keyboardType="numeric"
             editable={!isBlocked}
+            autoFocus
           />
         ) : (
           <Text style={styles.cell}>{item.count}</Text>
         )}
 
-        <Text style={styles.cell}>{totalAmount}</Text>
+        <Text style={styles.cell}>₹{totalAmount}</Text>
 
         {isEditing ? (
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => saveEditedCount(item._id)}
-            disabled={isBlocked}
-          >
-            <Ionicons name="checkmark" size={22} color={isBlocked ? 'gray' : 'green'} />
-          </TouchableOpacity>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.iconBtn, { marginRight: 8 }]}
+              onPress={() => saveEditedCount(item._id)}
+              disabled={isBlocked || loading || blockCheckLoading || !timeCheckCompleted}
+            >
+              <Ionicons name="checkmark" size={22} color={(isBlocked || loading || blockCheckLoading || !timeCheckCompleted) ? 'gray' : 'green'} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => {
+                setEditingId(null);
+                setEditingCount('');
+              }}
+              disabled={isBlocked || loading || blockCheckLoading || !timeCheckCompleted}
+            >
+              <Ionicons name="close" size={20} color={(isBlocked || loading || blockCheckLoading || !timeCheckCompleted) ? 'gray' : 'red'} />
+            </TouchableOpacity>
+          </View>
         ) : (
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => {
-              if (isBlocked) {
-                alert('Editing and deleting entries is blocked at this time.');
-                return;
-              }
-              setEditingId(item._id);
-              setEditingCount(String(item.count));
-            }}
-          >
-            <MaterialCommunityIcons
-              name="pencil"
-              size={20}
-              color={isBlocked ? 'gray' : '#333'}
-            />
-          </TouchableOpacity>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.iconBtn, { marginRight: 8 }]}
+              onPress={() => startEditing(item._id, item.count)}
+              disabled={isBlocked || loading || blockCheckLoading || !timeCheckCompleted}
+            >
+              <MaterialCommunityIcons
+                name="pencil"
+                size={20}
+                color={(isBlocked || loading || blockCheckLoading || !timeCheckCompleted) ? 'gray' : '#333'}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => confirmDeleteEntry(item._id)}
+              disabled={isBlocked || loading || blockCheckLoading || !timeCheckCompleted}
+            >
+              <Ionicons name="trash" size={20} color={(isBlocked || loading || blockCheckLoading || !timeCheckCompleted) ? 'gray' : 'red'} />
+            </TouchableOpacity>
+          </View>
         )}
-
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => confirmDeleteEntry(item._id)}
-          disabled={isBlocked}
-        >
-          <Ionicons name="trash" size={20} color={isBlocked ? 'gray' : 'red'} />
-        </TouchableOpacity>
       </View>
     );
   };
 
+  // ✅ Calculate total amount properly
+  const calculateTotalAmount = () => {
+    return entries.reduce((sum, entry) => {
+      if (entry.rate && typeof entry.rate === 'number') {
+        return sum + entry.rate;
+      }
+      return sum + (entry.count * 8);
+    }, 0);
+  };
+
+  // ✅ UPDATED: Get time remaining until block
+  const getTimeUntilBlock = () => {
+    if (!blockTime || !entryDate) return null;
+    
+    const now = new Date();
+    const [year, month, day] = entryDate.split('-').map(Number);
+    const [blockH, blockM] = blockTime.blockTime.split(':').map(Number);
+    const blockDeadline = new Date(year, month - 1, day, blockH, blockM, 0, 0);
+    
+    if (now >= blockDeadline) return null;
+    
+    const timeLeft = blockDeadline - now;
+    const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
+    const minutesLeft = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+    
+    return { hours: hoursLeft, minutes: minutesLeft };
+  };
+
+  const timeUntilBlock = getTimeUntilBlock();
+
   return (
     <View style={{ flex: 1, backgroundColor: '#f6f6f6' }}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>Edit</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="black" />
+        </TouchableOpacity>
+        <Text style={styles.headerText}>Edit & Delete Bill</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Main')}>
+          <Ionicons name="home" size={24} color="red" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.container}>
         <Text style={styles.title}>Bill No</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, isBlocked && { backgroundColor: '#f0f0f0', color: '#999' }]}
           placeholder="Enter Bill No"
           value={billNo}
           onChangeText={setBillNo}
           placeholderTextColor="#999"
           keyboardType="numeric"
-          editable={!isBlocked}
+          editable={!loading}
         />
         <View style={styles.buttonRow}>
           <TouchableOpacity
-            style={[styles.searchBtn, isBlocked && { backgroundColor: '#aaa' }]}
+            style={[styles.searchBtn, loading && { backgroundColor: '#aaa' }]}
             onPress={() => handleSearch()}
-            disabled={isBlocked}
+            disabled={loading}
           >
-            <Text style={styles.btnText}>Search</Text>
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.btnText}>Search</Text>
+            )}
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.deleteBtn, isBlocked && { backgroundColor: '#aaa' }]}
+            style={[styles.deleteBtn, (isBlocked || entries.length === 0 || loading || blockCheckLoading) && { backgroundColor: '#aaa' }]}
             onPress={handleDelete}
-            disabled={isBlocked}
+            disabled={isBlocked || entries.length === 0 || loading || blockCheckLoading || !timeCheckCompleted}
           >
-            <Text style={styles.btnText}>Delete</Text>
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : blockCheckLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.btnText}>Delete All</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
 
-      {isBlocked && (
-        <Text
-          style={{
-            textAlign: 'center',
-            marginTop: 8,
-            color: 'red',
-            fontWeight: 'bold',
-          }}
-        >
-          Editing and deleting entries is blocked at this time.
-        </Text>
+      {/* ✅ UPDATED: Enhanced Block Status Indicators */}
+      {blockCheckLoading && (
+        <View style={styles.statusContainer}>
+          <ActivityIndicator size="small" color="#ff2e63" />
+          <Text style={styles.statusText}>Checking block deadline...</Text>
+        </View>
       )}
 
-      {loading ? (
-        <Text style={{ textAlign: 'center', marginTop: 20 }}>Loading...</Text>
+      {isBlocked && blockTime && entryDate && (
+        <View style={styles.permanentBlockContainer}>
+          <Text style={styles.permanentBlockText}>
+            🔒 PERMANENTLY BLOCKED
+          </Text>
+          <Text style={styles.blockDetailsText}>
+            Bill Date: {entryDate} | Block Time: {blockTime.blockTime}
+          </Text>
+          <Text style={styles.blockDetailsText}>
+            Deadline passed - No further editing allowed
+          </Text>
+        </View>
+      )}
+
+      {!isBlocked && timeUntilBlock && blockTime && (
+        <View style={styles.warningContainer}>
+          <Text style={styles.warningText}>
+            ⚠️ Editing will be blocked in {timeUntilBlock.hours}h {timeUntilBlock.minutes}m
+          </Text>
+          <Text style={styles.warningDetailsText}>
+            Deadline: {entryDate} at {blockTime.blockTime}
+          </Text>
+        </View>
+      )}
+
+      {timeLabel && !isBlocked && !timeUntilBlock && (
+        <View style={styles.allowedContainer}>
+          <Text style={styles.allowedText}>
+            ✅ Editing allowed for {timeLabel} ({userType} user)
+          </Text>
+        </View>
+      )}
+
+      {loading && entries.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#ff2e63" />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
       ) : entries.length > 0 ? (
         <>
           <View style={styles.summaryCard}>
             <View style={styles.summaryLeft}>
               <Text style={styles.billText}>Bill #{billNo}</Text>
+              {timeLabel && <Text style={styles.timeText}>{timeLabel}</Text>}
+              {entryDate && <Text style={styles.dateText}>Date: {entryDate}</Text>}
             </View>
             <View style={styles.summaryRight}>
               <Text style={styles.summaryLine}>Count: {entries.length}</Text>
               <Text style={styles.summaryLine}>
-                Amount: ₹{entries.reduce((sum, e) => sum + e.count * 8, 0)}
+                Amount: ₹{calculateTotalAmount().toFixed(2)}
               </Text>
             </View>
           </View>
 
           <View style={styles.entryTableHeader}>
-            <Text style={styles.cell}>Ticket</Text>
-            <Text style={styles.cell}>No</Text>
-            <Text style={styles.cell}>Count</Text>
-            <Text style={styles.cell}>Amount</Text>
-            <Text style={styles.cell}></Text>
-            <Text style={styles.cell}></Text>
+            <Text style={styles.headerCell}>Ticket</Text>
+            <Text style={styles.headerCell}>No</Text>
+            <Text style={styles.headerCell}>Count</Text>
+            <Text style={styles.headerCell}>Amount</Text>
+            <Text style={styles.headerCell}>Actions</Text>
           </View>
           <FlatList
             data={entries}
             keyExtractor={(item) => item._id}
             renderItem={renderEntry}
+            showsVerticalScrollIndicator={false}
           />
         </>
       ) : billNo && !loading ? (
-        <Text style={{ textAlign: 'center', marginTop: 20 }}>No entries found.</Text>
+        <View style={styles.noResultsContainer}>
+          <Text style={styles.noResultsText}>No entries found for Bill #{billNo}</Text>
+        </View>
       ) : null}
     </View>
   );
@@ -405,10 +650,14 @@ const EditDeleteBillScreen = () => {
 
 const styles = StyleSheet.create({
   header: {
-    paddingVertical: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     elevation: 4,
     backgroundColor: '#fff',
+    marginTop: 30,
   },
   headerText: {
     fontSize: 17,
@@ -462,6 +711,98 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e3f2fd',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 8,
+  },
+  statusText: {
+    marginLeft: 8,
+    color: '#1976d2',
+    fontSize: 14,
+  },
+  // ✅ NEW: Permanent block styling
+  permanentBlockContainer: {
+    backgroundColor: '#ffebee',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 16,
+    borderRadius: 8,
+    borderLeftWidth: 6,
+    borderLeftColor: '#d32f2f',
+    alignItems: 'center',
+  },
+  permanentBlockText: {
+    color: '#d32f2f',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  blockDetailsText: {
+    color: '#d32f2f',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  // ✅ NEW: Warning before block
+  warningContainer: {
+    backgroundColor: '#fff3e0',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff9800',
+  },
+  warningText: {
+    color: '#ff9800',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  warningDetailsText: {
+    color: '#ff9800',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  allowedContainer: {
+    backgroundColor: '#e8f5e8',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#388e3c',
+  },
+  allowedText: {
+    color: '#388e3c',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  noResultsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
+  },
+  noResultsText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
   summaryCard: {
     backgroundColor: '#fff',
     margin: 16,
@@ -478,6 +819,17 @@ const styles = StyleSheet.create({
   billText: {
     fontWeight: 'bold',
     fontSize: 16,
+    color: '#333',
+  },
+  timeText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  dateText: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 1,
   },
   summaryLine: {
     fontSize: 14,
@@ -485,26 +837,51 @@ const styles = StyleSheet.create({
   },
   entryTableHeader: {
     flexDirection: 'row',
-    backgroundColor: 'violet',
-    paddingVertical: 8,
+    backgroundColor: '#8e44ad',
+    paddingVertical: 12,
     paddingHorizontal: 4,
+    marginHorizontal: 16,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+  },
+  headerCell: {
+    flex: 1,
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   entryTableRow: {
     flexDirection: 'row',
-    paddingVertical: 8,
+    paddingVertical: 12,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#eee',
     backgroundColor: '#fff',
+    marginHorizontal: 16,
+    alignItems: 'center',
   },
   cell: {
     flex: 1,
-    color: '#000',
+    color: '#333',
     textAlign: 'center',
     fontSize: 14,
   },
+  editInput: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#ff2e63',
+    paddingVertical: 4,
+    textAlign: 'center',
+  },
+  actionButtons: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   iconBtn: {
     paddingHorizontal: 4,
+    paddingVertical: 4,
   },
 });
 

@@ -13,7 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
-import logo from '../assets/bajaj.png';
+import logo from '../assets/speedracer.png';
 import { Domain } from './NetPayScreen';
 
 const LoginScreen = () => {
@@ -27,7 +27,7 @@ const LoginScreen = () => {
 
     // Local testing users (only for offline)
     const localUsers: Record<string, { password: string; usertype: string; salesBlocked: boolean }> = {
-      aki: { password: '388', usertype: 'admin', salesBlocked: false },
+      bit: { password: '420', usertype: 'admin', salesBlocked: false },
       john: { password: '1234', usertype: 'master', salesBlocked: true },
     };
 
@@ -102,6 +102,11 @@ const LoginScreen = () => {
         <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
           <Text style={styles.buttonText}>Login</Text>
         </TouchableOpacity>
+
+
+        <TouchableOpacity style={[styles.loginButton, styles.closeButton]} onPress={() => navigation.goBack()}>
+          <Text style={styles.buttonText}>Close</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -153,5 +158,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  closeButton: {
+    backgroundColor: '#ff3b30', // Red color for close button
   },
 });

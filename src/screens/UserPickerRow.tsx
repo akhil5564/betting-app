@@ -91,7 +91,6 @@ useEffect(() => {
             selectedValue={selectedUser1}
             onValueChange={(value) => setSelectedUser1(value)}
           >
-            <Picker.Item label="Select user1" value="" />
             {usersLevel1.map((user) => (
               <Picker.Item
                 key={user._id}
@@ -109,7 +108,6 @@ useEffect(() => {
             selectedValue={selectedUser2}
             onValueChange={(value) => setSelectedUser2(value)}
           >
-            <Picker.Item label="Select user2" value="" />
             {usersLevel2.map((user) => (
               <Picker.Item
                 key={user._id}
@@ -127,7 +125,6 @@ useEffect(() => {
             selectedValue={selectedUser3}
             onValueChange={(value) => setSelectedUser3(value)}
           >
-            <Picker.Item label="Select user3" value="" />
             {usersLevel3.map((user) => (
               <Picker.Item
                 key={user._id}

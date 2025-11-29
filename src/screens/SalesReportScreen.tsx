@@ -213,16 +213,19 @@ async function handleGenerateReport() {
       </View>
 
       <View style={styles.form}>
-       <Picker
+ 
+
+<Picker
   selectedValue={selectedTime}
   onValueChange={(value) => setSelectedTime(value)}
   style={styles.picker}
+  itemStyle={styles.pickerItem}
 >
-  <Picker.Item label="ALL" value="all" />
-  <Picker.Item label="DEAR 1 PM" value="DEAR 1 PM" />
-  <Picker.Item label="LSK 3 PM" value="LSK 3 PM" />
-  <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" />
-  <Picker.Item label="DEAR 8 PM" value="DEAR 8 PM" />
+  <Picker.Item label="ALL" value="all" color="#000000" />
+  <Picker.Item label="DEAR 1 PM" value="DEAR 1 PM" color="#000000" />
+  <Picker.Item label="LSK 3 PM" value="LSK 3 PM" color="#000000" />
+  <Picker.Item label="DEAR 6 PM" value="DEAR 6 PM" color="#000000" />
+  <Picker.Item label="DEAR 8 PM" value="DEAR 8 PM" color="#000000" />
 </Picker>
 
         <View style={styles.row}>
@@ -269,19 +272,19 @@ async function handleGenerateReport() {
 
         <TextInput
           placeholder="Ticket Number"
-          placeholderTextColor="#999"
+          placeholderTextColor="#000000"
           style={styles.input}
         />
 
         <View style={styles.row}>
           <Picker style={styles.halfPicker}>
-            <Picker.Item label="Select" value="" />
-            <Picker.Item label="1" value="1" />
-            <Picker.Item label="2" value="2" />
-            <Picker.Item label="3" value="3" />
+            <Picker.Item label="Select" value="" color="#000000" />
+            <Picker.Item label="1" value="1" color="#000000" />
+            <Picker.Item label="2" value="2" color="#000000" />
+            <Picker.Item label="3" value="3" color="#000000" />
           </Picker>
           <Picker style={styles.halfPicker}>
-            <Picker.Item label="Mode" value="" />
+            <Picker.Item label="Mode" value="" color="#000000" />
           </Picker>
         </View>
 
@@ -290,9 +293,9 @@ async function handleGenerateReport() {
           onValueChange={(value) => setSelectedAgent(value)}
           style={styles.picker}
         >
-          <Picker.Item label={`Logged in: ${loggedInUser}`} value="" enabled={false} />
+          <Picker.Item label={`Logged in: ${loggedInUser}`} value="" enabled={false} color="#000000" />
           {allUsers.map((username, index) => (
-            <Picker.Item key={index} label={username} value={username} />
+            <Picker.Item key={index} label={username} value={username} color="#000000" />
           ))}
         </Picker>
 
@@ -308,6 +311,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f2f2f2',
+    marginTop: 30,
   },
   header: {
     flexDirection: 'row',
@@ -320,6 +324,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#000000',
   },
   form: {
     backgroundColor: '#fff',
@@ -340,6 +345,8 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 5,
     marginBottom: 10,
+    color: '#000000',
+    fontWeight: 'bold',
   },
   row: {
     flexDirection: 'row',
@@ -354,6 +361,8 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     marginBottom: 4,
+    color: '#000000',
+    fontWeight: 'bold',
   },
   dateText: {
     padding: 12,
@@ -361,6 +370,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 5,
+    color: '#000000',
+    fontWeight: 'bold',
   },
   equalBox: {
     width: 40,
@@ -372,7 +383,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   equalText: {
-    color: '#fff',
+    color: '#f3e9e9ff',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -388,7 +399,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   generateButtonText: {
-    color: '#fff',
+    color: '#f7ededff',
     fontWeight: 'bold',
     textAlign: 'center',
   },

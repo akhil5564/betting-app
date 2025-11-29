@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { Appearance } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -116,6 +117,11 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
+  useEffect(() => {
+    if (Appearance.setColorScheme) {
+      Appearance.setColorScheme('light');
+    }
+  }, []);
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <NavigationContainer>

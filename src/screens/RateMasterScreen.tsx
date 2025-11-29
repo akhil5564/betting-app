@@ -35,6 +35,7 @@ const RateMasterScreen = () => {
   const [isLoadingRates, setIsLoadingRates] = useState(false);
 
   const [userList, setUserList] = useState<any[]>([]);
+  const [directUsers, setDirectUsers] = useState<any[]>([]);
   const [selectedUser1, setSelectedUser1] = useState('');
   const [selectedUser2, setSelectedUser2] = useState('');
   const [selectedUser3, setSelectedUser3] = useState('');
@@ -67,6 +68,16 @@ const RateMasterScreen = () => {
     };
     fetchUsers();
   }, []);
+
+  // Filter only direct users under loggedInUser
+  useEffect(() => {
+    if (!loggedInUser || userList.length === 0) {
+      setDirectUsers([]);
+      return;
+    }
+    const direct = userList.filter((u: any) => u.createdBy === loggedInUser);
+    setDirectUsers(direct);
+  }, [loggedInUser, userList]);
 
   // Cascade filters
   useEffect(() => {
@@ -267,7 +278,7 @@ const RateMasterScreen = () => {
           <View style={[styles.pickerBox, { flex: 0.48 }]}>
             <Picker selectedValue={selectedUser1} onValueChange={setSelectedUser1}>
               <Picker.Item label="-- Select Creator --" value="" />
-              {userList.map((u) => (
+              {directUsers.map((u) => (
                 <Picker.Item key={u.username} label={u.username} value={u.username} />
               ))}
             </Picker>
@@ -341,7 +352,7 @@ const RateMasterScreen = () => {
 export default RateMasterScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f3f4f6', paddingTop: 20 },
+  container: { flex: 1, backgroundColor: '#f3f4f6', paddingTop: 60 },
   header: { flexDirection: 'row', paddingHorizontal: 12, alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   headerTitle: { fontSize: 18, fontWeight: 'bold' },
   saveButton: { backgroundColor: '#facc15', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 4 },

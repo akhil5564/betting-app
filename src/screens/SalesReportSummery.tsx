@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 // @ts-ignore - icon types provided by Expo runtime
 import { Ionicons, AntDesign } from '@expo/vector-icons';
@@ -34,76 +34,78 @@ const SalesReportSummary = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Date Report Card */}
-      <View style={styles.card}>
-        <Text style={styles.dateText}>{date}</Text>
+      <ScrollView contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
+        {/* Date Report Card */}
+        <View style={styles.card}>
+          <Text style={styles.dateText}>{date}</Text>
 
-        <View style={styles.row}>
-          <Text style={styles.label}>Sales Amount :</Text>
-          <Text style={styles.value}>{amount}</Text>
+          <View style={styles.row}>
+            <Text style={styles.label}>Sales Amount :</Text>
+            <Text style={styles.value}>{amount}</Text>
+          </View>
+
+          <View style={styles.row}>
+            <Text style={styles.label}>Total Count :</Text>
+            <Text style={styles.value}>{count}</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() =>
+              (navigation as any).navigate('SalesReportDetailed', {
+                fromDate,
+                toDate,
+                createdBy,
+                timeLabel,
+                entries,
+                loggedInUser,
+              })
+            }
+          >
+            <Text style={styles.buttonText}>View Detailed</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.row}>
-          <Text style={styles.label}>Total Count :</Text>
-          <Text style={styles.value}>{count}</Text>
-        </View>
+        {/* By Agent Breakdown */}
+        {Array.isArray(byAgent) && byAgent.length > 0 && (
+          <View>
+            <Text style={[styles.headerTitle, { textAlign: 'center', marginVertical: 10 }]}> 
+              By Agent
+            </Text>
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() =>
-            (navigation as any).navigate('SalesReportDetailed', {
-              fromDate,
-              toDate,
-              createdBy,
-              timeLabel,
-              entries,
-              loggedInUser,
-            })
-          }
-        >
-          <Text style={styles.buttonText}>View Detailed</Text>
-        </TouchableOpacity>
-      </View>
+            {byAgent.map((row: any) => (
+              <View key={row.agent} style={styles.card}>
+                <Text style={styles.dateText}>{row.agent}</Text>
 
-      {/* By Agent Breakdown */}
-      {Array.isArray(byAgent) && byAgent.length > 0 && (
-        <View>
-          <Text style={[styles.headerTitle, { textAlign: 'center', marginVertical: 10 }]}>
-            By Agent
-          </Text>
+                <View style={styles.row}>
+                  <Text style={styles.label}>Sales Amount :</Text>
+                  <Text style={styles.value}>{Number(row.amount).toFixed(2)}</Text>
+                </View>
 
-          {byAgent.map((row: any) => (
-            <View key={row.agent} style={styles.card}>
-              <Text style={styles.dateText}>{row.agent}</Text>
+                <View style={styles.row}>
+                  <Text style={styles.label}>Total Count :</Text>
+                  <Text style={styles.value}>{row.count}</Text>
+                </View>
 
-              <View style={styles.row}>
-                <Text style={styles.label}>Sales Amount :</Text>
-                <Text style={styles.value}>{Number(row.amount).toFixed(2)}</Text>
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={() =>
+                    (navigation as any).navigate('SalesReportDetailed', {
+                      fromDate,
+                      toDate,
+                      createdBy: row.agent,
+                      timeLabel,
+                      loggedInUser,
+                    })
+                  }
+                >
+                  <Text style={styles.buttonText}>View Detailed</Text>
+                </TouchableOpacity>
               </View>
-
-              <View style={styles.row}>
-                <Text style={styles.label}>Total Count :</Text>
-                <Text style={styles.value}>{row.count}</Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.button}
-                onPress={() =>
-                  (navigation as any).navigate('SalesReportDetailed', {
-                    fromDate,
-                    toDate,
-                    createdBy: row.agent,
-                    timeLabel,
-                    loggedInUser,
-                  })
-                }
-              >
-                <Text style={styles.buttonText}>View Detailed</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
-      )}
+            ))}
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 };

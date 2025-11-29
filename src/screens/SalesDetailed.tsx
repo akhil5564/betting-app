@@ -158,25 +158,30 @@ const SalesReportDetailedAll = () => {
             A: <Text style={styles.boldText}>{item.createdBy}</Text>
           </Text>
         </TouchableOpacity>
-        <View style={[styles.itemRow, { backgroundColor: '#eee' }]}>
-    <Text style={[styles.itemCell, { fontWeight: 'bold' }]}>Type</Text>
-    <Text style={[styles.itemCell, { fontWeight: 'bold' }]}>Number</Text>
-    <Text style={[styles.itemCell, { fontWeight: 'bold' }]}>Count</Text>
-    <Text style={[styles.itemCell, { fontWeight: 'bold' }]}>Name</Text>
-    <Text style={[styles.itemCell, { fontWeight: 'bold' }]}>Amount</Text>
-  </View>
-       {item.items.map((entry, idx) => {
-  const rate = Number(entry.rate) || 0; // Use rate from entry
-  return (
-      <View style={styles.itemRow} key={entry._id + idx}>
-        <Text style={styles.itemCell}>{entry.type}</Text>
-        <Text style={styles.itemCell}>{entry.number}</Text>
-        <Text style={styles.itemCell}>{entry.count}</Text>
-        <Text style={styles.itemCell}>{entry?.name || '-'}</Text>
-        <Text style={styles.itemCell}>{rate.toFixed(2)}</Text>
-      </View>
-  );
-})}
+        <View style={[styles.itemRow, { backgroundColor: '#eee' }]}> 
+          <Text style={[styles.itemCell, { fontWeight: 'bold' }]}>Type</Text>
+          <Text style={[styles.itemCell, { fontWeight: 'bold' }]}>Number</Text>
+          <Text style={[styles.itemCell, { fontWeight: 'bold' }]}>Count</Text>
+          <Text style={[styles.itemCell, { fontWeight: 'bold' }]}>Amount</Text>
+        </View>
+        {/* Sort numbers in bill by created time */}
+        {item.items
+          .slice()
+          .sort((a, b) => {
+            if (!a.createdAt || !b.createdAt) return 0;
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          })
+          .map((entry, idx) => {
+            const rate = Number(entry.rate) || 0; // Use rate from entry
+            return (
+              <View style={styles.itemRow} key={entry._id + idx}>
+                <Text style={styles.itemCell}>{entry.type}</Text>
+                <Text style={styles.itemCell}>{entry.number}</Text>
+                <Text style={styles.itemCell}>{entry.count}</Text>
+                <Text style={styles.itemCell}>{rate.toFixed(2)}</Text>
+              </View>
+            );
+          })}
 
       </View>
     );

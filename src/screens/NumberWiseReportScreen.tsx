@@ -115,11 +115,11 @@ console.log("aaaaaaaaaaaaaaaaaa",url);
         <Text style={styles.label}>Draw Time</Text>
         <View style={styles.pickerWrapper}>
           <Picker selectedValue={selectedTime} onValueChange={setSelectedTime} style={styles.picker}>
-            <Picker.Item label="ALL" value="ALL" />
-            <Picker.Item label="DEAR 1PM" value="DEAR 1 PM" />
-            <Picker.Item label="KERALA 3PM" value="KERALA 3 PM" />
-            <Picker.Item label="DEAR 6PM" value="DEAR 6 PM" />
-            <Picker.Item label="DEAR 8PM" value="DEAR 8 PM" />
+            <Picker.Item label="ALL" value="ALL" color="#000000" />
+            <Picker.Item label="DEAR 1PM" value="DEAR 1 PM" color="#000000" />
+            <Picker.Item label="KERALA 3PM" value="LSK 3 PM" color="#000000" />
+            <Picker.Item label="DEAR 6PM" value="DEAR 6 PM" color="#000000" />
+            <Picker.Item label="DEAR 8PM" value="DEAR 8 PM" color="#000000" />
           </Picker>
         </View>
 
@@ -135,6 +135,7 @@ console.log("aaaaaaaaaaaaaaaaaa",url);
             <Text style={styles.label}>Ticket Number</Text>
             <TextInput
               placeholder="Ticket Number"
+              placeholderTextColor="#00000081"
               style={styles.input}
               value={ticketNumber}
               onChangeText={setTicketNumber}
@@ -145,9 +146,9 @@ console.log("aaaaaaaaaaaaaaaaaa",url);
         <Text style={styles.label}>Agent</Text>
         <View style={styles.pickerWrapper}>
           <Picker selectedValue={selectedAgent} onValueChange={setSelectedAgent} style={styles.picker}>
-            <Picker.Item label="Select Agent" value="" />
+            <Picker.Item label="Select Agent" value="" color="#000000" />
             {allUsers.map((user, i) => (
-              <Picker.Item key={i} label={user} value={user} />
+              <Picker.Item key={i} label={user} value={user} color="#000000" />
             ))}
           </Picker>
         </View>
@@ -160,7 +161,7 @@ console.log("aaaaaaaaaaaaaaaaaa",url);
             <Ionicons
               name={groupWithoutName ? 'checkbox' : 'square-outline'}
               size={20}
-              color="#000"
+              color="#0f0e0eff"
             />
             <Text style={styles.checkboxLabel}>Group without ticket name</Text>
           </TouchableOpacity>
@@ -191,25 +192,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     padding: 16, backgroundColor: '#fff',
   },
-  title: { fontSize: 18, fontWeight: 'bold' },
+  title: { fontSize: 18, fontWeight: 'bold', color: '#000000' },
   body: {
     padding: 20, backgroundColor: '#fff', margin: 10, borderRadius: 8,
   },
-  label: { fontSize: 14, marginBottom: 4 },
+  label: { fontSize: 14, marginBottom: 4, color: '#0a0808ff', fontWeight: 'bold' },
   input: {
     backgroundColor: '#f2f2f2', borderRadius: 6, padding: 12, marginBottom: 16,
-    borderWidth: 1, borderColor: '#ddd',
+    borderWidth: 1, borderColor: '#ddd', color: '#0a0a0aff', fontWeight: 'bold',
   },
-  boldText: { fontWeight: 'bold' },
+  boldText: { fontWeight: 'bold', color: '#000000ff' },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   column: { flex: 1, marginRight: 8 },
   checkboxRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   checkbox: { flexDirection: 'row', alignItems: 'center' },
-  checkboxLabel: { marginLeft: 8 },
+  checkboxLabel: { marginLeft: 8, color: '#000000', fontWeight: 'bold' },
   button: {
     backgroundColor: '#f92659', padding: 16, borderRadius: 8, alignItems: 'center', elevation: 2,
   },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  buttonText: { color: '#f8ededff', fontWeight: 'bold', fontSize: 16 },
   pickerWrapper: {
     backgroundColor: '#f2f2f2', borderRadius: 6, marginBottom: 16,
     borderWidth: 1, borderColor: '#ddd',

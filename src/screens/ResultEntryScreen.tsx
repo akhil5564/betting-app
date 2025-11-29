@@ -14,10 +14,9 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { Domain } from './NetPayScreen';
 
 const ResultEntryScreen: React.FC = () => {
-  const [time, setTime] = useState<string>('DEAR 6PM');
+  const [time, setTime] = useState<string>('DEAR 1PM');
   const [date, setDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [prizes, setPrizes] = useState<string[]>(['', '', '', '', '']);
@@ -45,66 +44,67 @@ const ResultEntryScreen: React.FC = () => {
 
   const getShortCode = (t: string) => {
     if (t === 'KERALA 3PM') return 'LSK';
-    if (t === 'DEAR 1PM') return 'D-1';
-    if (t === 'DEAR 6PM') return 'D-6';
-    if (t === 'DEAR 8PM') return 'D-8';
+    if (t === 'DEAR 1 PM') return 'D-1';
+    if (t === 'DEAR 6 PM') return 'D-6';
+    if (t === 'DEAR 8 PM') return 'D-8';
     return 'CODE';
   };
 
-  const handleSave = async () => {
-    const formattedDate = date.toISOString().split('T')[0];
-    const shortCode = getShortCode(time);
+const handleSave = async () => {
+  const formattedDate = date.toISOString().split('T')[0];
+  const shortCode = getShortCode(time);
 
-    const prizeEntries = prizes.filter(p => /^\d{3}$/.test(p));
-    const resultEntries = numbers
-      .map((num, index) => ({
-        ticket: (index + 1).toString(),
-        result: num.trim(),
-      }))
-      .filter(entry => /^\d{3}$/.test(entry.result));
+  const prizeEntries = prizes.filter(p => /^\d{3}$/.test(p));
+  const resultEntries = numbers
+    .map((num, index) => ({
+      ticket: (index + 1).toString(),
+      result: num.trim(),
+    }))
+    .filter(entry => /^\d{3}$/.test(entry.result));
 
-    if (resultEntries.length === 0 && prizeEntries.length === 0) {
-      Alert.alert('Missing Data', 'Enter at least one result or prize.');
-      return;
-    }
+  if (resultEntries.length === 0 && prizeEntries.length === 0) {
+    Alert.alert('Missing Data', 'Enter at least one result or prize.');
+    return;
+  }
 
+  try {
+    // ✅ No need to fetch existing — we are overwriting
     const payload = {
       results: {
         [formattedDate]: [
           {
             [time]: {
               prizes: prizeEntries,
-              entries: resultEntries,
-            },
-          },
-        ],
-      },
+              entries: resultEntries
+            }
+          }
+        ]
+      }
     };
 
-    console.log('Sending payload:', JSON.stringify(payload, null, 2));
+    console.log('📤 Sending REPLACEMENT payload:', JSON.stringify(payload, null, 2));
 
-    try {
-      const response = await fetch(`${Domain}/addResult`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+    const response = await fetch('https://www.muralibajaj.site/addResult', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
 
-      const resData = await response.json();
+    const resData = await response.json();
 
-      if (response.ok) {
-        Alert.alert('Success', 'Result saved successfully.');
-      } else {
-        console.error('Server error:', resData);
-        Alert.alert('Error', resData.message || 'Failed to save.');
-      }
-    } catch (err) {
-      console.error('Request error:', err);
-      Alert.alert('Error', 'Network or server error.');
+    if (response.ok) {
+      Alert.alert('Success', 'Result replaced successfully.');
+    } else {
+      console.error('❌ Server error:', resData);
+      Alert.alert('Error', resData.message || 'Failed to save.');
     }
-  };
+  } catch (err) {
+    console.error('⚠️ Request error:', err);
+    Alert.alert('Error', 'Network or server error.');
+  }
+};
+
+
 
   const openCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -139,65 +139,55 @@ const ResultEntryScreen: React.FC = () => {
       // handleImageRecognition(result.assets[0].uri)
     }
   };
+const handlePaste = async () => {
+  try {
+    const text = await Clipboard.getStringAsync();
+    const lines = text.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
-  const handlePaste = async () => {
-    try {
-      const text = await Clipboard.getStringAsync();
-      const lines = text.trim().split('\n').map(line => line.trim()).filter(Boolean);
+    let parsedTime = 'DEAR 1 PM';
+    let parsedDate = new Date();
 
-      if (lines.length < 6) {
-        Alert.alert('Invalid format', 'Not enough data in clipboard.');
-        return;
-      }
-
-      let parsedTime = 'DEAR 6PM';
-      let parsedDate = new Date();
-      let startIndex = 0;
-
-      const matchFormat1 = lines[0].match(/^(DEAR\d)\s+(\d{4}-\d{2}-\d{2})$/i);
-      if (matchFormat1) {
-        const game = matchFormat1[1].toUpperCase();
-        const dateStr = matchFormat1[2];
-        parsedTime = game === 'DEAR1' ? 'DEAR 1PM' : game === 'DEAR6' ? 'DEAR 6PM' : game === 'DEAR8' ? 'DEAR 8PM' : game;
-        parsedDate = new Date(dateStr);
-        startIndex = 1;
-      }
-
-      const matchFormat2 = lines[0].match(/^Results\s+(\d{1,2}:\d{2}\s*(?:AM|PM))$/i);
-      if (matchFormat2) {
-        const timeStr = matchFormat2[1].trim();
-        if (timeStr === '1:00 PM') parsedTime = 'DEAR 1PM';
-        else if (timeStr === '6:00 PM') parsedTime = 'DEAR 6PM';
-        else if (timeStr === '8:00 PM') parsedTime = 'DEAR 8PM';
-        startIndex = 1;
-      }
-
-      const parsedPrizes = lines
-        .slice(startIndex, startIndex + 5)
-        .map(line => line.slice(0, 3))
-        .filter(n => /^\d{3}$/.test(n));
-
-      const numberLines = lines.slice(startIndex + 5);
-      const parsedNumbers = numberLines
-        .flatMap(line => line.split(/\s+/))
-        .map(n => n.trim())
-        .filter(n => /^\d{3}$/.test(n))
-        .slice(0, 30);
-
-      const filledNumbers = [...parsedNumbers, ...Array(30 - parsedNumbers.length).fill('')];
-      const filledPrizes = [...parsedPrizes, ...Array(5 - parsedPrizes.length).fill('')];
-
-      setTime(parsedTime);
-      setDate(parsedDate);
-      setPrizes(filledPrizes);
-      setNumbers(filledNumbers);
-
-      Alert.alert('Success', 'Results pasted successfully.');
-    } catch (error) {
-      console.error('Paste error:', error);
-      Alert.alert('Error', 'Failed to paste data.');
+    // Try to detect draw & date
+    const matchFormat1 = text.match(/(DEAR\s*1|DEAR\s*6|DEAR\s*8|KERALA\s*3)\s*(?:PM)?/i);
+    if (matchFormat1) {
+      const game = matchFormat1[1].replace(/\s+/g, ' ').toUpperCase();
+      if (game.includes('KERALA 3')) parsedTime = 'KERALA 3PM';
+      else if (game.includes('DEAR 1')) parsedTime = 'DEAR 1PM';
+      else if (game.includes('DEAR 6')) parsedTime = 'DEAR 6PM';
+      else if (game.includes('DEAR 8')) parsedTime = 'DEAR 8PM';
     }
-  };
+
+    const dateMatch = text.match(/\d{4}-\d{2}-\d{2}/);
+    if (dateMatch) parsedDate = new Date(dateMatch[0]);
+
+    // Extract ALL 3-digit numbers
+    const allNumbers = text.match(/\b\d{3}\b/g) || [];
+
+    if (allNumbers.length < 1) {
+      Alert.alert('Invalid format', 'No 3-digit numbers found.');
+      return;
+    }
+
+    // First 5 → prizes
+    const parsedPrizes = allNumbers.slice(0, 5);
+    const parsedNumbers = allNumbers.slice(5, 35); // up to 30 normal entries
+
+    const filledPrizes = [...parsedPrizes, ...Array(5 - parsedPrizes.length).fill('')];
+    const filledNumbers = [...parsedNumbers, ...Array(30 - parsedNumbers.length).fill('')];
+
+    setTime(parsedTime);
+    setDate(parsedDate);
+    setPrizes(filledPrizes);
+    setNumbers(filledNumbers);
+
+    console.log('📋 Paste Results:', { parsedTime, parsedDate, filledPrizes, filledNumbers });
+    Alert.alert('Success', 'Results pasted successfully.');
+  } catch (error) {
+    console.error('Paste error:', error);
+    Alert.alert('Error', 'Failed to paste data.');
+  }
+};
+
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} style={styles.container}>
@@ -215,6 +205,13 @@ const ResultEntryScreen: React.FC = () => {
             <Ionicons name="image-outline" size={24} color="black" />
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* ✅ Show selected draw */}
+      <View style={styles.row}>
+        <Text style={styles.selectedDrawText}>
+          Selected Draw: {time}
+        </Text>
       </View>
 
       <View style={styles.row}>
@@ -307,96 +304,22 @@ const ResultEntryScreen: React.FC = () => {
 export default ResultEntryScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    marginTop: 30,
-    marginBottom: 30,
-  },
-  scrollContent: {
-    padding: 16,
-    flexGrow: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  iconRow: {
-    flexDirection: 'row',
-  },
-  iconButton: {
-    marginLeft: 10,
-  },
-  row: {
-    flexDirection: 'row',
-    marginBottom: 10,
-  },
-  picker: {
-    flex: 1,
-    backgroundColor: '#f1f1f1',
-  },
-  dateInput: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    backgroundColor: '#f1f1f1',
-    justifyContent: 'center',
-    borderRadius: 4,
-  },
-  prizeRow: {
-    flexDirection: 'row',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    marginBottom: 2,
-    alignItems: 'center',
-  },
-  prizeLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    width: 30,
-  },
-  prizeInput: {
-    borderBottomWidth: 1,
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 4,
-  },
-  gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 10,
-  },
-  gridItem: {
-    width: '30%',
-    margin: '1.5%',
-    textAlign: 'center',
-    paddingVertical: 10,
-    fontSize: 16,
-    borderRadius: 5,
-  },
-  saveButton: {
-    backgroundColor: '#f36',
-    padding: 14,
-    marginTop: 20,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  codeDisplay: {
-    textAlign: 'center',
-    marginTop: 10,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#555',
-  },
+  container: { flex: 1, backgroundColor: '#f3bbbbff', marginTop: 30, marginBottom: 60 },
+  scrollContent: { padding: 8, flexGrow: 1 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  title: { fontSize: 16, fontWeight: 'bold' },
+  iconRow: { flexDirection: 'row' },
+  iconButton: { marginLeft: 6 },
+  row: { flexDirection: 'row', marginBottom: 6 },
+  selectedDrawText: { fontSize: 16, fontWeight: 'bold', color: '#333' }, // ✅ new
+  picker: { flex: 1, backgroundColor: '#f1f1f1', height: 36 },
+  dateInput: { flex: 1, paddingVertical: 6, paddingHorizontal: 6, backgroundColor: '#f1f1f1', justifyContent: 'center', borderRadius: 3 },
+  prizeRow: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 10, marginBottom: 1, alignItems: 'center' },
+  prizeLabel: { fontSize: 14, fontWeight: 'bold', width: 25 },
+  prizeInput: { borderBottomWidth: 1, flex: 1, fontSize: 14, paddingVertical: 2 },
+  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 },
+  gridItem: { width: '30%', margin: '1.5%', textAlign: 'center', paddingVertical: 6, fontSize: 14, borderRadius: 4 },
+  saveButton: { backgroundColor: '#f36', padding: 10, marginTop: 10, borderRadius: 4, alignItems: 'center' },
+  saveButtonText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+  codeDisplay: { textAlign: 'center', marginTop: 6, fontSize: 14, fontWeight: '600', color: '#555' },
 });

@@ -18,8 +18,9 @@ import {
   ScrollView,
   SafeAreaView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { TextInput as RNTextInput, } from 'react-native';
 import { Domain } from './NetPayScreen';
@@ -30,7 +31,7 @@ const { width, height } = Dimensions.get('window');
 // ✅ Calculate responsive dimensions with 20px bottom space
 const FOOTER_HEIGHT = 70; // Fixed footer height
 const SAFE_AREA_BOTTOM = Platform.OS === 'ios' ? 34 : 0; // iPhone safe area
-const BOTTOM_FREE_SPACE = 20; // ✅ Added 20px free space at bottom
+const BOTTOM_FREE_SPACE = 40; // ✅ Added 40px free space at bottom
 
 type Entry = {
   number: string;
@@ -38,6 +39,8 @@ type Entry = {
   type: string;
   timeLabel?: string;
   name?: string; 
+  shortCode?: string;
+  rate?: number;
 };
 
 type RootStackParamList = {
@@ -61,8 +64,8 @@ const timeOptions = [
   { label: 'DEAR 8 PM', color: '#3c6248', shortCode: 'D-8-' },
 ];
 
-const TIME_SHORTCODES = {
-  'LSK 3 PM': 'LSK3-',
+const TIME_SHORTCODES: { [key: string]: string } = {
+  'LSK 3 PM': 'LSK3',
   'DEAR 1 PM': 'D-1-',
   'DEAR 6 PM': 'D-6-', 
   'DEAR 8 PM': 'D-8-'
@@ -121,6 +124,12 @@ const AddScreen = () => {
   const [count, setCount] = useState('');
   const [box, setBox] = useState('');
   const [name, setName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Whenever name changes, update all entries in the table to use the current name
+  useEffect(() => {
+    setEntries(prev => prev.map(e => ({ ...e, name })));
+  }, [name]);
 
   const [toggleCount, setToggleCount] = useState(3);
   const [checkboxes, setCheckboxes] = useState({
@@ -142,7 +151,18 @@ const AddScreen = () => {
   const labelMap = ['SUPER', 'BOX', 'AB', 'BC', 'AC', 'A', 'B', 'C'];
 
   const toggleCheckbox = (key: string) => {
-    setCheckboxes({ ...checkboxes, [key as keyof typeof checkboxes]: !checkboxes[key as keyof typeof checkboxes] });
+    // Make 'range', 'hundred', and 'tripleOne' mutually exclusive
+    if (key === 'range' || key === 'hundred' || key === 'tripleOne') {
+      setCheckboxes(prev => ({
+        ...prev,
+        range: key === 'range' ? !prev.range : false,
+        hundred: key === 'hundred' ? !prev.hundred : false,
+        tripleOne: key === 'tripleOne' ? !prev.tripleOne : false,
+        set: prev.set, // Keep set checkbox unchanged
+      }));
+    } else {
+      setCheckboxes(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
+    }
   };
 
   useEffect(() => {
@@ -312,11 +332,11 @@ const AddScreen = () => {
     } else {
       console.log('⚠️ No block window from API, using fallback');
       const fallback = {
-        LSK3: '15:00',
-        DEAR1: '13:00',
-        DEAR6: '18:00',
-        DEAR8: '20:00',
-      } as Record<'LSK3' | 'DEAR1' | 'DEAR6' | 'DEAR8', string>;
+        'LSK3': '15:00',
+        'D-1-': '13:00',
+        'D-6-': '18:00',
+        'D-8-': '20:00',
+      } as Record<string, string>;
       
       const endTime = fallback[drawKey];
       if (endTime) {
@@ -437,6 +457,11 @@ const AddScreen = () => {
       }
     }
     
+    // For A, B, C types: single digit = 12, 2-digit = 10, 3-digit = 10
+    if (['A', 'B', 'C'].includes(baseType)) {
+      return numberToCheck && numberToCheck.length === 1 ? 12 : 10;
+    }
+    
     return numberToCheck && numberToCheck.length === 1 ? 12 : 10;
   };
 
@@ -494,7 +519,7 @@ const AddScreen = () => {
     const boxC = isNaN(parsedBox) ? singleC : parsedBox;
 
     const pushEntry = (numberStr: string, cnt: number, entryType: string) => {
-      newEntries.push({ number: numberStr, count: cnt, type: entryType ,name: name  });
+  newEntries.push({ number: numberStr, count: cnt, type: entryType, name });
     };
 
     const useRange = !!(checkboxes.range || checkboxes.hundred || checkboxes.tripleOne);
@@ -633,7 +658,8 @@ const AddScreen = () => {
     }
 
     // prepend new entries (keeps older entries after)
-    setEntries(prev => [...newEntries, ...prev]);
+  // Only set name for new entries, keep previous entries as is
+  setEntries(prev => [...newEntries.map(e => ({ ...e, name })), ...prev]);
 
     // clear inputs
     setNumber('');
@@ -642,7 +668,6 @@ const AddScreen = () => {
     setRangeStart('');
     setRangeEnd('');
     setRangeCount('');
-    setName('');
 
     // focus appropriate input
     setTimeout(() => {
@@ -656,8 +681,19 @@ const AddScreen = () => {
 
 
   const handleSave = async () => {
-    
+    // Prevent duplicate saves
+    if (isSaving) {
+      console.log('Save already in progress — ignoring duplicate request');
+      return;
+    }
+
+    // Optional: check pre-save conditions (time blocks, etc.)
+    const canSave = await canProceedToSave();
+    if (!canSave) return;
+
     try {
+      setIsSaving(true);
+
       // const encodedLabel = encodeURIComponent(selectedTime);
       // console.log("sdddddddddd",encodedLabel);
 
@@ -671,6 +707,7 @@ const AddScreen = () => {
       if (!res.ok) {
         // Show a friendly dialog summarizing remaining vs attempted
         const msg = data?.message || 'Limit exceeded. Nothing was saved.';
+        setIsSaving(false);
         return alert(`⛔ ${msg}`);
       }
 
@@ -682,9 +719,18 @@ const AddScreen = () => {
         alert(`⚠️ Some entries were adjusted:\n${data.exceeded.map((e: any) => `${e.type}: remaining ${e.remaining}, attempted ${e.attempted}, saved ${e.willAdd}`).join('\n')}`);
       }
 
+
+      // Clear the name input after saving and focus number input
+      setName('');
+      setTimeout(() => {
+        numberInputRef.current?.focus();
+      }, 100);
+
     } catch (err) {
       console.error(err);
       alert('❌ Network error. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -694,7 +740,7 @@ const AddScreen = () => {
 
 
   const handleDeleteEntry = (indexToDelete: number) => {
-    setEntries((prev) => prev.filter((_, index) => index !== indexToDelete));
+  setEntries((prev) => prev.filter((_, index) => index !== indexToDelete));
   };
 
   useEffect(() => {
@@ -783,7 +829,7 @@ const AddScreen = () => {
       }
     }
 
-    setEntries((prev) => [...newEntries, ...prev]);
+  setEntries((prev) => [...newEntries.map(e => ({ ...e, name })), ...prev.map(e => ({ ...e, name }))]);
   }, [route?.params?.pastedText]);
 
   useEffect(() => {
@@ -798,12 +844,15 @@ const AddScreen = () => {
         console.log('Current shortcode:', currentShortCode);
 
         const processedEntries = pastedEntries.map((entry: any) => {
+          let processedEntry;
+          
           // For single digit numbers with A, B, C type
           if (entry.number.length === 1 && ['A', 'B', 'C'].includes(entry.type)) {
-            const processedEntry = {
+            processedEntry = {
               ...entry,
               timeLabel: selectedTime,
-              shortCode: currentShortCode // Add shortcode to entry
+              shortCode: currentShortCode, // Add shortcode to entry
+              rate: getRate(entry.type, entry.number) // Add rate calculation
             };
             console.log('Processing single digit:', {
               ...processedEntry,
@@ -812,28 +861,60 @@ const AddScreen = () => {
             return processedEntry;
           }
 
-          // For 3 digit numbers
-          const processedEntry = {
+          // For 2-digit numbers with A, B, C type
+          if (entry.number.length === 2 && ['A', 'B', 'C'].includes(entry.type)) {
+            processedEntry = {
+              ...entry,
+              timeLabel: selectedTime,
+              shortCode: currentShortCode, // Add shortcode to entry
+              rate: getRate(entry.type, entry.number) // Add rate calculation
+            };
+            console.log('Processing 2-digit with ABC type:', {
+              ...processedEntry,
+              shortCode: currentShortCode
+            });
+            return processedEntry;
+          }
+
+          // For other numbers (2-digit and 3-digit with SUPER/BOX)
+          // Check if entry type already has shortcode prefix to avoid double-prefixing
+          let finalType = entry.type;
+          if (!entry.type.includes(currentShortCode)) {
+            if (entry.type.includes('BOX')) {
+              finalType = `${currentShortCode}BOX`;
+            } else if (entry.type.includes('SUPER')) {
+              finalType = entry.type; // Keep as is if already has SUPER
+            } else {
+              finalType = `${currentShortCode}SUPER`; // Default fallback
+            }
+          }
+          
+          processedEntry = {
             ...entry,
-            type: entry.type === 'BOX' ? 
-              `${currentShortCode}BOX` : 
-              `${currentShortCode}SUPER`,
+            type: finalType,
             timeLabel: selectedTime,
-            shortCode: currentShortCode // Add shortcode to entry
+            shortCode: currentShortCode, // Add shortcode to entry
+            rate: getRate(
+              entry.type.includes('BOX') ? 'BOX' : 'SUPER', 
+              entry.number
+            ) // Add rate calculation
           };
-          console.log('Processing 3 digit:', {
-            ...processedEntry,
+          console.log('Processing other digit:', {
+            originalType: entry.type,
+            finalType: finalType,
+            isBOX: entry.type.includes('BOX'),
+            rate: processedEntry.rate,
             shortCode: currentShortCode
           });
           return processedEntry;
         });
 
-        console.log('Final processed entries:', processedEntries.map(entry => ({
+        console.log('Final processed entries:', processedEntries.map((entry: any) => ({
           ...entry,
           shortCode: currentShortCode
         })));
         
-        setEntries(prev => [...processedEntries, ...prev]);
+  setEntries(prev => [...processedEntries.map((e: any) => ({ ...e, name })), ...prev.map((e: any) => ({ ...e, name }))]);
 
       } catch (error) {
         console.error('Error processing pasted data:', error);
@@ -845,11 +926,7 @@ const AddScreen = () => {
     <SafeAreaView style={[styles.page, { backgroundColor: selectedColor }]}>
       {/* ✅ Main Content Container with proper padding bottom for footer */}
       <View style={styles.contentContainer}>
-        <ScrollView 
-          contentContainerStyle={styles.scrollContainer} 
-          keyboardShouldPersistTaps="always"
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={styles.scrollContainer}>
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.headerBtn}
@@ -866,8 +943,19 @@ const AddScreen = () => {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-              <Text style={styles.saveButtonText}>SAVE</Text>
+            <TouchableOpacity
+              style={[styles.saveButton, isSaving ? styles.saveButtonDisabled : null]}
+              onPress={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <ActivityIndicator size="small" color="#1C1C1C" />
+                  <Text style={[styles.saveButtonText, { marginLeft: 8 }]}>Saving...</Text>
+                </View>
+              ) : (
+                <Text style={styles.saveButtonText}>SAVE</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -1084,12 +1172,7 @@ const AddScreen = () => {
             </View>
 
             {/* ✅ Scrollable Table Container */}
-            <ScrollView
-              style={styles.tableContainer}
-              contentContainerStyle={styles.tableContentContainer}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true} // ✅ Allow nested scrolling
-            >
+            <ScrollView style={styles.tableContainer} contentContainerStyle={styles.tableContentContainer} scrollEnabled={true} showsVerticalScrollIndicator={true}>
               {entries.map((entry, index) => (
                 <View
   key={index}
@@ -1100,12 +1183,11 @@ const AddScreen = () => {
 >
   <Text style={styles.tableCell}>
       {entry.type === 'A' || entry.type === 'B' || entry.type === 'C' 
-        ? `${entry.shortCode}${entry.type}`
+        ? `${entry.shortCode || selectedCode}${entry.type}`
         : entry.type}
     </Text>
     <Text style={styles.tableCell}>{entry.number}</Text>
     <Text style={styles.tableCell}>{entry.count}</Text>
-    <Text style={styles.tableCell}>{entry.name || '-'}</Text>
     <Text style={[styles.tableCell, styles.amountCell]}>
       {(entry.count * (entry.number.length === 1 ? 12 : 10)).toFixed(2)}
     </Text>
@@ -1116,9 +1198,9 @@ const AddScreen = () => {
       onPress={() => handleDeleteEntry(index)}
       style={styles.deleteButton}
     >
-      <Ionicons name="trash" size={20} color="black" />
+      <Icon name="trash" size={20} color="black" />
     </TouchableOpacity>
-</View>
+              </View>
               ))}
             </ScrollView>
 
@@ -1158,7 +1240,7 @@ const AddScreen = () => {
               </View>
             </TouchableWithoutFeedback>
           </Modal>
-        </ScrollView>
+  </View>
       </View>
 
       {/* ✅ Fixed Footer Row - Always at bottom, no overlap */}
@@ -1174,7 +1256,7 @@ const AddScreen = () => {
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.footerBtn, { backgroundColor: '#34C759' }]} onPress={() => navigation.navigate('Paste', { selectedTime })}>
-          <Ionicons name="logo-whatsapp" size={20} color="#fff" />
+          <Icon name="logo-whatsapp" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -1191,12 +1273,12 @@ const styles = StyleSheet.create({
   // ✅ Content container that leaves space for footer + 20px free space
   contentContainer: {
     flex: 1,
-    paddingBottom: FOOTER_HEIGHT + SAFE_AREA_BOTTOM + BOTTOM_FREE_SPACE, // ✅ Added 20px space
+  paddingBottom: FOOTER_HEIGHT + SAFE_AREA_BOTTOM + BOTTOM_FREE_SPACE, // ✅ Added 40px space
   },
   // ✅ ScrollView content styling with reduced top padding
   scrollContainer: {
     paddingTop: 5, // ✅ Reduced padding
-    paddingBottom: 10, // ✅ Reduced padding
+  paddingBottom: 40, // Increased free space at bottom
   },
   header: {
     flexDirection: 'row',
@@ -1212,6 +1294,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 42,
     borderRadius: 10,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
   },
   saveButtonText: {
     color: '#1C1C1C',
@@ -1294,7 +1379,6 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10, // ✅ Reduced from 15
     paddingHorizontal: 6, // ✅ Reduced from 8
   },
   actionButton: {
@@ -1314,11 +1398,10 @@ const styles = StyleSheet.create({
   entrySection: {
     backgroundColor: '#F2F2F2',
     borderRadius: 8, // ✅ Reduced from 10
-    marginTop: 8, // ✅ Reduced from 10
-    minHeight: height * 0.55, // ✅ INCREASED from 0.4 to 0.55
-    maxHeight: height * 0.75, // ✅ INCREASED from 0.6 to 0.75
     width: '100%',
     overflow: 'hidden',
+    marginTop: 8, // ✅ Reduced from 10
+    minHeight: 420, // ⬆️ Increased minHeight for entry section
   },
   statsRow: {
     flexDirection: 'row',
@@ -1337,7 +1420,6 @@ const styles = StyleSheet.create({
   tableContainer: {
     flex: 1, // ✅ Take available space
     marginHorizontal: 3, // ✅ Reduced from 4
-    maxHeight: height * 0.6, // ✅ INCREASED from 0.4 to 0.6
   },
   // ✅ Content container for scrollable table
   tableContentContainer: {
@@ -1355,9 +1437,9 @@ const styles = StyleSheet.create({
   },
   tableCell: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 11 ,
     textAlign: 'center',
-    fontWeight: 'bold',
+    fontWeight: '900',
     color: '#000000', // Fixed black color
     paddingVertical: 2,
   },
