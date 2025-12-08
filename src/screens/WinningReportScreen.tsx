@@ -27,6 +27,7 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Ionicons, AntDesign } from "@expo/vector-icons";
 import { Domain } from "./NetPayScreen";
 import { RootStackParamList } from "../../App";
+import { formatDateIST } from "../utils/dateUtils";
 
 type Props = NativeStackScreenProps<RootStackParamList, "WinningReportScreen">;
 
@@ -38,7 +39,7 @@ const rf = (f: number) => Math.sqrt(height * height + width * width) * (f / 1000
 const responsivePadding = () => wp(4);
 
 function formatDate(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return formatDateIST(date);
 }
 
 export default function WinningReportScreen({ navigation }: Props) {

@@ -14,6 +14,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import { formatDateIST } from '../utils/dateUtils';
 
 const ResultEntryScreen: React.FC = () => {
   const [time, setTime] = useState<string>('DEAR 1PM');
@@ -51,7 +52,7 @@ const ResultEntryScreen: React.FC = () => {
   };
 
 const handleSave = async () => {
-  const formattedDate = date.toISOString().split('T')[0];
+  const formattedDate = formatDateIST(date);
   const shortCode = getShortCode(time);
 
   const prizeEntries = prizes.filter(p => /^\d{3}$/.test(p));

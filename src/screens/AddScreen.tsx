@@ -24,6 +24,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
 import { TextInput as RNTextInput, } from 'react-native';
 import { Domain } from './NetPayScreen';
+import { formatDateIST } from '../utils/dateUtils';
 
 // ✅ Get screen dimensions
 const { width, height } = Dimensions.get('window');
@@ -206,7 +207,7 @@ const AddScreen = () => {
       console.log('🔍 Checking blocked date for:', drawKey);
       const res = await fetch(`${Domain}/get-blocked-dates`);
       const data = await res.json();
-      const today = new Date().toISOString().split('T')[0];
+      const today = formatDateIST(new Date());
       
       const blocked = Array.isArray(data)
         ? data.some((item: any) => {

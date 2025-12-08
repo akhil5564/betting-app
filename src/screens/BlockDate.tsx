@@ -12,6 +12,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import { Domain as API_URL } from "./NetPayScreen";
+import { formatDateIST } from "../utils/dateUtils";
 
 // Using shared Domain from NetPayScreen for consistency across app
 
@@ -46,7 +47,7 @@ const BlockDateScreen = () => {
     try {
       const newBlock = {
         ticket: selectedTicket,
-        date: date.toISOString().split("T")[0], // YYYY-MM-DD
+        date: formatDateIST(date), // YYYY-MM-DD
       };
 
       let resp = await axios.post(`${API_URL}/add-blockdate`, newBlock);
@@ -101,7 +102,7 @@ const BlockDateScreen = () => {
           onPress={() => setShowDatePicker(true)}
         >
           <Text style={{ fontWeight: "bold" }}>
-            {date.toISOString().split("T")[0]}
+            {formatDateIST(date)}
           </Text>
         </TouchableOpacity>
       </View>

@@ -13,7 +13,7 @@ import axios from "axios";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Domain } from "./NetPayScreen";
-
+import { formatDateIST } from "../utils/dateUtils";
 
 function addDays(date, days) {
   const result = new Date(date);
@@ -22,7 +22,7 @@ function addDays(date, days) {
 }
 
 function formatDate(date) {
-  return date.toISOString().split("T")[0];
+  return formatDateIST(date);
 }
 
 // Extract bet type from the type field (e.g., "D-1-SUPER" -> "SUPER")

@@ -15,6 +15,7 @@ import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Domain } from './NetPayScreen';
+import { formatDateIST } from '../utils/dateUtils';
 
 const NumberWiseReportScreen = () => {
   const navigation = useNavigation<any>();
@@ -60,7 +61,7 @@ const NumberWiseReportScreen = () => {
 
   const handleGenerateReport = async () => {
     try {
-      const formattedDate = date.toISOString().split('T')[0];
+      const formattedDate = formatDateIST(date);
       let url = `${Domain}/report/count?date=${formattedDate}`;
 
       if (selectedTime !== 'ALL') url += `&time=${encodeURIComponent(selectedTime)}`;

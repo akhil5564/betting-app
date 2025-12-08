@@ -25,7 +25,7 @@ const ResultScreen = () => {
   const [prizes, setPrizes] = useState<string[]>([]);
   const [entries, setEntries] = useState<string[]>([]);
 
-  const formatDate = (date: Date) => date.toISOString().split('T')[0];
+  const formatDate = (date: Date) => formatDateIST(date);
 
   const handleGenerate = async () => {
     try {

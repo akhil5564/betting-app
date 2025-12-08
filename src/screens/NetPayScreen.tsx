@@ -12,6 +12,7 @@ import Icon from "react-native-vector-icons/Ionicons";
 import axios from "axios";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { formatDateIST } from "../utils/dateUtils";
 
 const payouts = {
   SUPER: { 1: 5000, 2: 500, 3: 250, 4: 100, 5: 50, other: 20 },
@@ -25,10 +26,6 @@ const payouts = {
 
 function isDoubleNumber(numStr: string) {
   return new Set(numStr.split("")).size === 2;
-}
-
-function formatDate(date: Date) {
-  return date.toISOString().split("T")[0];
 }
 
 export function extractBetType(typeStr: string) {
@@ -220,8 +217,8 @@ export default function NetPayMultiDayScreen() {
           : selectedTime;
 
       const response = await axios.post(`${Domain}/report/netpay-multiday`, {
-        fromDate: formatDate(fromDate),
-        toDate: formatDate(toDate),
+        fromDate: formatDateIST(fromDate),
+        toDate: formatDateIST(toDate),
         time: timeToSend,
         agent: selectedAgent,
       });
@@ -233,8 +230,8 @@ export default function NetPayMultiDayScreen() {
       }
 
       navigation.navigate("netdetailed", {
-        fromDate: formatDate(fromDate),
-        toDate: formatDate(toDate),
+        fromDate: formatDateIST(fromDate),
+        toDate: formatDateIST(toDate),
         time: selectedTime,
         agent: selectedAgent || "All Agents",
         matchedEntries: response.data.entries,

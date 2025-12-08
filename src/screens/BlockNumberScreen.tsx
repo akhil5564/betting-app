@@ -12,6 +12,7 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import { Domain } from './NetPayScreen';
 import { useRoute } from '@react-navigation/native';
+import { formatDateIST } from '../utils/dateUtils';
 
 const BlockNumbersScreen = () => {
   const [blockType, setBlockType] = useState<'single' | 'series' | 'group'>('single');
@@ -297,7 +298,7 @@ const BlockNumbersScreen = () => {
       selectedGroup: selectedGroup,
       drawTime: selectedTime,
       createdBy:selectedUser.username, // Replace with actual user from context/auth
-      timestamp: new Date().toISOString(),
+      timestamp: formatDateIST(new Date()),
     };
   };
 

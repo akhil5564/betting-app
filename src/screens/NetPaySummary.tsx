@@ -92,8 +92,33 @@ const [selectedUser, setSelectedUser] = useState("All");
   //   const rate = userRates[user]?.[betType] ?? 10;
   //   return sum + (entry.count || 0) * rate;
   // }, 0);
+  // Normalize bet type: extract just the bet type (SUPER, BOX, A, B, C, etc.)
+  // from formats like "LSK3SUPER", "DEAR1BOX", "D-1-SUPER", etc.
+  const normalizeBetType = (typeStr: string): string => {
+    if (!typeStr) return "";
+    
+    // First try the existing extractBetType logic (for formats like "D-1-SUPER")
+    const extracted = extractBetType(typeStr);
+    
+    // If it contains a dash, the extracted part is likely the bet type
+    if (typeStr.includes("-")) {
+      return extracted;
+    }
+    
+    // Otherwise, strip common draw prefixes (LSK3, DEAR1, DEAR6, DEAR8)
+    const drawPrefixes = ["LSK3", "DEAR1", "DEAR6", "DEAR8"];
+    for (const prefix of drawPrefixes) {
+      if (extracted.startsWith(prefix)) {
+        return extracted.substring(prefix.length);
+      }
+    }
+    
+    // If no prefix found, return as-is (might already be normalized like "SUPER", "A", "B", etc.)
+    return extracted;
+  };
+
   const totalSales = entries.reduce((sum, entry) => {
-    const betType = extractBetType(entry.type);
+    const betType = normalizeBetType(entry.type);
   
     // normalize draw name (to match backend keys)
     const drawLabelMap: Record<string, string> = {
@@ -108,12 +133,18 @@ const [selectedUser, setSelectedUser] = useState("All");
   
     // Use entry's createdBy/username to lookup rates (backend uses createdBy as key)
     const entryUser = entry.createdBy || entry.username || user;
+    console.log('entryUser', entryUser)
     
     // ✅ now lookup with both entry's user + draw + betType
     const rate =
       userRates[entryUser]?.[normalizedLabel]?.[betType] ??
       10;
-  
+    console.log('rate', rate)
+    console.log('normalizedLabel', normalizedLabel)
+    console.log('betType', betType)
+    console.log('userRates', userRates)
+    console.log('userRates[entryUser]', userRates[entryUser])
+
     return sum + (entry.count || 0) * rate;
   }, 0);
   
