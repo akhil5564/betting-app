@@ -35,8 +35,8 @@ export function extractBetType(typeStr: string) {
 }
 // export const Domain = "https://bajaj-app-backend.onrender.com";
 
-// export const Domain = "https://www.muralibajaj.site";
-export const  Domain ='http://10.168.141.85:5000';
+export const Domain = "https://www.muralibajaj.site";
+// export const  Domain ='http://10.168.141.85:5000';
 // export const Domain = "https://th7m39hx-5000.inc1.devtunnels.ms/";
 // export const Domain = "http://localhost:5000";
 // export const Domain = "https://manu-netflix.onrender.com";
