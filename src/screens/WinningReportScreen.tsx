@@ -131,6 +131,7 @@ export default function WinningReportScreen({ navigation }: Props) {
         usersList: allUsersList,
         byAgent: byAgentData,
       } = res.data;
+console.log("mergedBillsmergedBillsmergedBills",mergedBills);
 
       navigation.navigate("winningreportsummary", {
         report: {
@@ -229,7 +230,11 @@ export default function WinningReportScreen({ navigation }: Props) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Draw Time */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>
@@ -342,6 +347,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
     padding: responsivePadding(),
   },
   card: {

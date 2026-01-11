@@ -38,7 +38,7 @@ export default class WinningDetailedScreen extends Component<Props> {
       return parts[parts.length - 1]; // Get the last part
     };
     
-    const betType = extractBetType(win.type);
+    const betType = extractBetType(win.type)
     
     const payoutTables: { [key: string]: any } = {
       "1": {
@@ -161,9 +161,9 @@ export default class WinningDetailedScreen extends Component<Props> {
         scrollEnabled={true}
         showsHorizontalScrollIndicator={false}
         style={[
-          styles.tableRow,
           isEven ? styles.rowEven : styles.rowOdd,
         ]}
+        contentContainerStyle={styles.tableRow}
       >
         <View style={styles.cell}>
           <Text style={styles.cellText}>{entry.billNo}</Text>
@@ -263,7 +263,11 @@ export default class WinningDetailedScreen extends Component<Props> {
         </View>
 
         {/* Table with horizontal and vertical scroll, and colored background */}
-        <ScrollView horizontal style={styles.tableScroll} contentContainerStyle={{ minWidth: 900 }}>
+        <ScrollView 
+          horizontal 
+          style={styles.tableScroll} 
+          contentContainerStyle={{ minWidth: 900, alignItems: 'stretch' }}
+        >
           <View style={{ flex: 1, backgroundColor: '#ffffff', borderRadius: 6, paddingBottom: 8 }}>
             {/* Table Header */}
             <View style={[styles.tableRow, styles.headerRow]}> 

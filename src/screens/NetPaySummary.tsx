@@ -133,22 +133,178 @@ const [selectedUser, setSelectedUser] = useState("All");
   
     // Use entry's createdBy/username to lookup rates (backend uses createdBy as key)
     const entryUser = entry.createdBy || entry.username || user;
-    console.log('entryUser', entryUser)
-    
+  
     // ✅ now lookup with both entry's user + draw + betType
     const rate =
       userRates[entryUser]?.[normalizedLabel]?.[betType] ??
       10;
-    console.log('rate', rate)
-    console.log('normalizedLabel', normalizedLabel)
-    console.log('betType', betType)
-    console.log('userRates', userRates)
-    console.log('userRates[entryUser]', userRates[entryUser])
 
     return sum + (entry.count || 0) * rate;
   }, 0);
+
+  const calcSuperAmount = (win, scheme) => {
+    const payoutTables = {
+      "1": {
+        super: { 1: 400, 2: 50, 3: 30, 4: 30, 5: 20, other: 10 },
+        box: {
+          normal: { perfect: 300, permutation: 30 },
+          double: { perfect: 330, permutation: 60 },
+        },
+        ab_bc_ac: 30,
+      },
+      "2": {
+        super: { 1: 200, 2: 25, 3: 15, 4: 15, 5: 10, other: 5 },
+        box: {
+          normal: { perfect: 150, permutation: 15 },
+          double: { perfect: 165, permutation: 30 },
+        },
+        ab_bc_ac: 15,
+      },
+      "3": {
+        super: {},
+        box: { normal: { perfect: 0, permutation: 0 }, double: { perfect: 0, permutation: 0 } },
+        ab_bc_ac: 0,
+      },
+    };
+
+    const schemeKey = String(scheme).replace(/[^0-9]/g, "") || "1";
+    const payouts = payoutTables[schemeKey] || payoutTables["1"];
+
+    const getPrizePosition = (winType) => {
+      const match = winType && winType.match(/SUPER (\d)/);
+      return match ? parseInt(match[1], 10) : null;
+    };
+
+    if (win.type === "SUPER") {
+      if (schemeKey === "3") return 0;
+      const pos = getPrizePosition(win.winType || "");
+      if (pos && payouts.super[pos]) return payouts.super[pos] * win.count;
+      return (payouts.super.other || 0) * win.count;
+    }
+
+    if (win.type === "BOX") {
+      const isPerfect = (win.winType || "").includes("perfect");
+      const isDouble = (win.winType || "").includes("double");
+      if (isDouble) {
+        return isPerfect
+          ? payouts.box.double.perfect * win.count
+          : payouts.box.double.permutation * win.count;
+      }
+      return isPerfect
+        ? payouts.box.normal.perfect * win.count
+        : payouts.box.normal.permutation * win.count;
+    }
+
+    if (["AB", "BC", "AC"].includes(win.type)) {
+      return payouts.ab_bc_ac * win.count;
+    }
+
+    return 0;
+  };
+
+  // Calculate winning using the same logic as WinningReportSummary.tsx
+  const billsMap = {};
+
+  // Log summary for verification
+  const winningEntries = entries.filter(entry => entry.winAmount && entry.winAmount > 0);
+  // console.log("📊 SUMMARY - Winning entries:", winningEntries.length, "| Total winAmount:", winningEntries.reduce((sum, e) => sum + e.winAmount, 0));
+
+  entries.forEach(entry => {
+    if (!entry.billNo) return;
+
+    // 🔴 MUST SKIP non-winning entries
+    if (!entry.winAmount || entry.winAmount <= 0) return;
+
+    if (!billsMap[entry.billNo]) {
+      billsMap[entry.billNo] = {
+        billNo: entry.billNo,
+        scheme: entry.scheme,
+        winnings: []
+      };
+    }
+
+    const betType = normalizeBetType(entry.type);
+
+    billsMap[entry.billNo].winnings.push({
+      type: betType,   // SUPER / BOX / A / B / C
+      winType: entry.winType, // Now properly computed from backend
+      winAmount: entry.winAmount,
+      count: entry.count || 1
+    });
+  });
+
+  let totalWinning = 0;
+  let runningTotalPrize = 0;
+  let runningTotalSuper = 0;
+
+  Object.values(billsMap).forEach(bill => {
+    let billPrize = 0;
+    let billCommission = 0;
+
+    bill.winnings.forEach(win => {
+      const commission = calcSuperAmount(win, bill.scheme);
+      billPrize += win.winAmount;
+      billCommission += commission;
+      runningTotalPrize += win.winAmount;
+      runningTotalSuper += commission;
+
+      // console.log(
+      //   "🎯 WIN →",
+      //   "Bill:", bill.billNo,
+      //   "| Type:", win.type,
+      //   "| WinAmount:", win.winAmount,
+      //   "| WinTotal:", runningTotalPrize,
+      //   "| CommissionTotal:", runningTotalSuper,
+      //   "| Count:", win.count,
+      //   "| Commission:", commission
+      // );
+    });
+
+    // After finishing the bill, add to total
+    totalWinning += billPrize + billCommission;
+
+    // console.log(
+    //   "🧾 BILL SUMMARY →",
+    //   "BillNo:", bill.billNo,
+    //   "| Prize:", billPrize,
+    //   "| Commission:", billCommission,
+    //   "| Total for bill:", billPrize + billCommission,
+    //   "| Running totalWinning:", totalWinning
+    // );
+  });
+
+  // console.log("🧾 Total Bills:", Object.keys(billsMap).length);
+  // console.log("🎯 FINAL totalWinning:", totalWinning);
+
+  // Calculate and log totals like WinningReportSummary
+  let totalPrizeAll = 0;
+  let totalSuperAll = 0;
+  // console.log("📋 BILL BREAKDOWN:");
+  Object.values(billsMap).forEach(bill => {
+    let billPrize = 0;
+    let billSuper = 0;
+    bill.winnings.forEach(win => {
+      const superAmt = calcSuperAmount(win, bill.scheme);
+      billPrize += win.winAmount;
+      billSuper += superAmt;
+    });
+    totalPrizeAll += billPrize;
+    totalSuperAll += billSuper;
+    // console.log(`  Bill ${bill.billNo}: Prize=₹${billPrize}, Commission=₹${billSuper}, Total=₹${billPrize + billSuper}`);
+  });
+  // console.log("📊 SUMMARY - Total Prize:", totalPrizeAll, "| Total Super:", totalSuperAll, "| Grand Total:", totalPrizeAll + totalSuperAll);
+
+  // Check for any bills that might have zero winnings
+  const zeroWinBills = Object.values(billsMap).filter(bill => bill.winnings.length === 0);
+  if (zeroWinBills.length > 0) {
+    // console.log("⚠️ Bills with no winnings:", zeroWinBills.map(b => b.billNo));
+  }
   
-  const totalWinning = entries.reduce((sum, e) => sum + (e.winAmount || 0), 0);
+  
+
+// const totalAmount = totalPrize + totalSuper;
+    
+  // const totalWinning = entries.reduce((sum, e) => sum + (e.winAmount || 0), 0);
 
     return {
       user,

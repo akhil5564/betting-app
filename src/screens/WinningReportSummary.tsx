@@ -81,17 +81,34 @@ const WinningReportSummary = () => {
     }
     return 0;
   };
-
+  let billCommission =0
+  let billWinTotal =0
   /** Calculate global totals */
-  bills.forEach((bill: any) => {
-    (bill.winnings || []).forEach((win: any) => {
-      const superAmt = calcSuperAmount(win, bill.scheme);
-      totalPrize += win.winAmount || 0;
-      totalSuper += superAmt;
-      totalAmount += (win.winAmount || 0) + superAmt;
-    });
-  });
-
+  // bills.forEach((bill: any) => {
+  //   (bill.winnings || []).forEach((win: any) => {
+  //     const superAmt = calcSuperAmount(win, bill.scheme);
+  //     // billCommission += superAmt;
+  //     // billWinTotal += win.winAmount;
+  //     console.log(
+  //       "🎯 WIN →",
+  //       "Bill:", bill.billNo,
+  //       "| Type:", win.type,
+  //       "| WinAmount:", win.winAmount,
+  //       "| WinTotal:", billWinTotal,
+  //       "| CommissionTotal:", billCommission,
+  //       "| Count:", win.count,
+  //       "| Commission:", superAmt
+  //     );
+  //   });
+  // });
+  // bills.forEach(bill => {
+  //   console.log(
+  //     `🧾 BillNo: ${bill.billNo}`,
+  //     " | Wins count:", bill.winnings.length,
+  //     " | Scheme:", bill.scheme,
+  //     " | Win amounts:", bill.winnings.map(w => w.winAmount)
+  //   );
+  // });
   /** Group bills by agent for agent summary */
   const getAgentSummary = () => {
     const agentMap = new Map();
@@ -180,6 +197,16 @@ const WinningReportSummary = () => {
                   aPrize += win.winAmount || 0;
                   aSuper += superAmt;
                   aAmount += (win.winAmount || 0) + superAmt;
+                  console.log(
+                          "🎯 WIN →",
+                          "Bill:", bill?.billNo,
+                          "| Type:", win?.type,
+                          "| WinAmount:", win?.winAmount,
+                          "| WinTotal:", aAmount,
+                          "| CommissionTotal:", aSuper,
+                          "| Count:", win.count,
+                          "| Commission:", superAmt
+                        );
                 });
               });
 
